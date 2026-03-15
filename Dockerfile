@@ -1,0 +1,20 @@
+# Stage 1: Build
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build-env
+WORKDIR /app
+
+# Look inside the NEW folder name for the project file
+COPY heatalertserver/*.csproj ./
+RUN dotnet restore
+
+# Look inside the NEW folder name for the source code
+COPY heatalertserver/ ./
+RUN dotnet publish -c Release -o out
+
+# Stage 2: Run
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
+WORKDIR /app
+COPY --from=build-env /app/out .
+
+# IMPORTANT: The DLL name is usually the same as the .csproj filename
+# If your file is backend.csproj, this is correct:
+ENTRYPOINT ["dotnet", "backend.dll"]
