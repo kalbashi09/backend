@@ -3,11 +3,11 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build-env
 WORKDIR /app
 
 # Look inside the NEW folder name for the project file
-COPY heatalertserver/*.csproj ./
+COPY backend/*.csproj ./
 RUN dotnet restore
 
 # Look inside the NEW folder name for the source code
-COPY heatalertserver/ ./
+COPY backend/ ./
 RUN dotnet publish -c Release -o out
 
 # Stage 2: Run
