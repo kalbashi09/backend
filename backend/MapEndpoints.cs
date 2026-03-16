@@ -51,18 +51,20 @@ namespace HeatAlert
                     var history = await db.GetHistory(limit ?? 100);
                     if (!history.Any()) return Results.NotFound("Database is empty.");
 
-                    var friendlyHistory = history.Select(h => {
-                    // Tell C# this time is already in the 'Local' (PH) format
-                    DateTime localTime = DateTime.SpecifyKind(h.CreatedAt, DateTimeKind.Local);
+                   var friendlyHistory = history.Select(h => {
+                    // 1. Get the Manila Time Zone
+                    var phZone = TimeZoneInfo.FindSystemTimeZoneById("Asia/Manila");
+                    
+                    // 2. Convert the DB time (which C# thinks is UTC) to PH Time
+                    DateTime phTime = TimeZoneInfo.ConvertTimeFromUtc(h.CreatedAt, phZone);
 
                     return new {
                         h.BarangayName,
                         h.HeatIndex,
-                        h.Lat,
-                        h.Lng,
-                        Date = localTime.ToString("MMM dd, yyyy"),
-                        Time = localTime.ToString("hh:mm tt"), 
-                        RawTimestamp = localTime
+                        // ... other fields
+                        Date = phTime.ToString("MMM dd, yyyy"),
+                        Time = phTime.ToString("hh:mm tt"), // This will now show 12:49 PM
+                        RawTimestamp = phTime
                     };
                 });
 
