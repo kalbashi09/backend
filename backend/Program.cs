@@ -185,12 +185,13 @@ string ConvertPostgresUrlToConnString(string url)
     int port = uri.Port <= 0 ? 5432 : uri.Port; 
 
     return $"Host={uri.Host};" +
-           $"Port={port};" + 
-           $"Username={userInfo[0]};" +
-           $"Password={userInfo[1]};" +
-           $"Database={uri.AbsolutePath.Trim('/')};" +
-           $"SslMode=Require;" +
-           $"Trust Server Certificate=true";
+       $"Port={port};" + 
+       $"Username={userInfo[0]};" +
+       $"Password={userInfo[1]};" +
+       $"Database={uri.AbsolutePath.Trim('/')};" +
+       $"SslMode=Require;" +
+       $"Trust Server Certificate=true;" +
+       $"Integrated Security=False;"; // Add this line
 }
 
 public static class GlobalData {
