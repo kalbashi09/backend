@@ -208,6 +208,12 @@ string ConvertPostgresUrlToConnString(string url)
 public static class GlobalData {
     public static AlertResult? LatestAlert { get; set; }
     // One source of truth for time
-    public static DateTime GetPHTime() => 
-        TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "Asia/Manila");
+    public static DateTime GetPHTime() 
+    {
+        var phTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "Asia/Manila");
+        
+        // This is the "Magic" line: 
+        // It tells C# "Do not treat this as UTC, just treat it as a raw clock value."
+        return DateTime.SpecifyKind(phTime, DateTimeKind.Unspecified);
+    }
 }
