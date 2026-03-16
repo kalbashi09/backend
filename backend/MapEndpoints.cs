@@ -52,20 +52,19 @@ namespace HeatAlert
                     if (!history.Any()) return Results.NotFound("Database is empty.");
 
                    var friendlyHistory = history.Select(h => {
-                    // 1. Get the Manila Time Zone
-                    var phZone = TimeZoneInfo.FindSystemTimeZoneById("Asia/Manila");
-                    
-                    // 2. Convert the DB time (which C# thinks is UTC) to PH Time
-                    DateTime phTime = TimeZoneInfo.ConvertTimeFromUtc(h.CreatedAt, phZone);
+                    // 1. Manually add 8 hours to the database time
+                    // We use .AddHours(8) because PH is UTC+8
+                    DateTime manualPhTime = h.CreatedAt.AddHours(8);
 
                     return new {
                         h.BarangayName,
                         h.HeatIndex,
                         h.Lat,
                         h.Lng,
-                        Date = phTime.ToString("MMM dd, yyyy"),
-                        Time = phTime.ToString("hh:mm tt"), // This will now show 12:49 PM
-                        RawTimestamp = phTime
+                        // 2. Format it for your UI
+                        Date = manualPhTime.ToString("MMM dd, yyyy"),
+                        Time = manualPhTime.ToString("hh:mm tt"), 
+                        RawTimestamp = manualPhTime
                     };
                 });
 
