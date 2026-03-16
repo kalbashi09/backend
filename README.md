@@ -98,8 +98,3 @@ async function syncHeatData() {
 
 ---
 
-### 📚 Learning for Better Understanding
-
-To truly grasp why we structure the API this way, I recommend reading **"Clean Architecture" by Robert C. Martin**. It explains the "Separation of Concerns" you used here—where the **HeatSimulator** (Business Logic) is completely independent of the **MapEndpoints** (Delivery Mechanism). This is the key to building "Proper Server-Based Logic" that stays scalable.
-
----
