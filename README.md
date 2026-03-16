@@ -1,5 +1,4 @@
 
-
 ---
 
 # 🌡️ HEALERTSYS (Heat Alert System) - Talisay City
@@ -80,13 +79,13 @@ async function syncHeatData() {
 
 ### Alert Thresholds
 
-| Status | Range | Visual Indicator |
-| --- | --- | --- |
-| **EXTREME DANGER** | >= 49°C | Crimson (`#c0392b`) | `extreme-danger` |
-| **DANGER** | 42°C - 48°C | Red (`#ff4757`) | `danger` |
-| **EXTREME CAUTION** | 39°C - 41°C | Orange (`#ffa502`) | `caution` |
-| **NORMAL** | 29°C - 38°C | Green (`#2ed573`) | `normal` |
-| **COOL** | < 29°C | Blue (`#3498db`) | `cool` |
+| Status | Range | Visual Indicator | CSS Class |
+| --- | --- | --- | --- |
+| **🚨 EXTREME DANGER** | >= 49°C | Crimson (`#c0392b`) | `extreme-danger` |
+| **🔥 DANGER** | 42°C - 48°C | Red (`#ff4757`) | `danger` |
+| **⚠️ EXTREME CAUTION** | 39°C - 41°C | Orange (`#ffa502`) | `caution` |
+| **✅ NORMAL** | 29°C - 38°C | Green (`#2ed573`) | `normal` |
+| **❄️ COOL** | < 29°C | Blue (`#3498db`) | `cool` |
 
 ---
 
@@ -94,7 +93,8 @@ async function syncHeatData() {
 
 * **Batch DOM Updates:** When rendering the heat history table, avoid updating `innerHTML` inside a loop. Construct the full HTML string first and inject it once to maintain high browser performance.
 * **Polling Frequency:** The simulation updates every 30 seconds. Polling every 10–15 seconds on the frontend is recommended to ensure UI freshness without overtaxing the server.
-* **Spatial Interaction:** It is highly recommended to use the `lat` and `lng` data to provide a `map.flyTo()` interaction when a user clicks a record in the UI.
+* **Spatial Interaction:** Use the `lat` and `lng` data to provide a `map.flyTo()` interaction when a user clicks a record in the UI.
+* **🧊 Cold Starts:** Since the API is hosted on a free-tier instance, the first request may take up to 50 seconds to respond if the service has been idle. Subsequent requests will be near-instant.
 
 ---
 
@@ -102,4 +102,4 @@ async function syncHeatData() {
 
 To truly grasp why we structure the API this way, I recommend reading **"Clean Architecture" by Robert C. Martin**. It explains the "Separation of Concerns" you used here—where the **HeatSimulator** (Business Logic) is completely independent of the **MapEndpoints** (Delivery Mechanism). This is the key to building "Proper Server-Based Logic" that stays scalable.
 
-**Would you like me to add a "Troubleshooting" section to this README that covers common errors like the Postgres connection or 401 Unauthorized issues?**
+---
