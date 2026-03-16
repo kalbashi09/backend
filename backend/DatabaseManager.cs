@@ -31,14 +31,15 @@ namespace HeatAlert
 
                 // Postgres standard uses 'NOW()' or 'CURRENT_TIMESTAMP'
                 string query = @"INSERT INTO heat_logs (barangay, heat_index, latitude, longitude, created_at) 
-                                VALUES (@brgy, @heat, @lat, @lng, NOW())";
-                                
+                VALUES (@brgy, @heat, @lat, @lng, @created)";
+
                 using var cmd = new NpgsqlCommand(query, connection);
-                
                 cmd.Parameters.AddWithValue("@brgy", result.BarangayName ?? "Unknown");
                 cmd.Parameters.AddWithValue("@heat", result.HeatIndex);
                 cmd.Parameters.AddWithValue("@lat", result.Lat);
                 cmd.Parameters.AddWithValue("@lng", result.Lng);
+                // SEND THE PH TIME WE ALREADY CALCULATED:
+                cmd.Parameters.AddWithValue("@created", result.CreatedAt);
                 
                 await cmd.ExecuteNonQueryAsync();
                 Console.WriteLine($"--- DB Saved (Postgres): {result.BarangayName} recorded at {result.HeatIndex}°C ---");
