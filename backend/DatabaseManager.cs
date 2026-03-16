@@ -33,13 +33,15 @@ namespace HeatAlert
                 string query = @"INSERT INTO heat_logs (barangay, heat_index, latitude, longitude, created_at) 
                 VALUES (@brgy, @heat, @lat, @lng, @created)";
 
+                // Inside SaveHeatLog...
                 using var cmd = new NpgsqlCommand(query, connection);
                 cmd.Parameters.AddWithValue("@brgy", result.BarangayName ?? "Unknown");
                 cmd.Parameters.AddWithValue("@heat", result.HeatIndex);
                 cmd.Parameters.AddWithValue("@lat", result.Lat);
                 cmd.Parameters.AddWithValue("@lng", result.Lng);
-                // Just pass the UtcNow value; Postgres will shift it +8 upon entry
-                cmd.Parameters.AddWithValue("@created", result.CreatedAt);
+
+                // FORCE the type to Timestamp (not TimestampTz) to preserve the exact hour
+                cmd.Parameters.Add("@created", NpgsqlTypes.NpgsqlDbType.Timestamp).Value = result.CreatedAt;
                 
                 await cmd.ExecuteNonQueryAsync();
                 Console.WriteLine($"--- DB Saved (Postgres): {result.BarangayName} recorded at {result.HeatIndex}°C ---");

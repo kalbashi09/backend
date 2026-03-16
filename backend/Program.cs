@@ -208,8 +208,8 @@ public static class GlobalData {
 
     public static DateTime GetPHTime() 
     {
-        // Simply return UtcNow. 
-        // The Database's 'Asia/Manila' setting will handle the rest.
-        return DateTime.UtcNow; 
+        // Get the actual PH Time instead of UTC
+        var phZone = TimeZoneInfo.FindSystemTimeZoneById("Asia/Manila");
+        return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, phZone);
     }
 }
