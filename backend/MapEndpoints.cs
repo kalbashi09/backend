@@ -48,17 +48,25 @@ namespace HeatAlert
                 if (IsNotAuthorized(context)) return Results.Unauthorized();
 
                 try {
+                    // ADD THIS LINE: This fetches the data from the DB
                     var history = await db.GetHistory(limit ?? 100);
-                    if (!history.Any()) return Results.NotFound("Database is empty.");
 
-                    var friendlyHistory = history.Select(h => new {
-                        h.BarangayName,
-                        h.HeatIndex,
-                        h.Lat,
-                        h.Lng,
-                        Date = h.CreatedAt.ToString("MMM dd, yyyy"),
-                        Time = h.CreatedAt.ToString("hh:mm tt"),
-                        RawTimestamp = h.CreatedAt
+                    if (history == null || !history.Any()) return Results.NotFound("Database is empty.");
+
+                    // Now 'history' exists for this part:
+                    var friendlyHistory = history.Select(h => {
+                        // Force the time to look right for PH
+                        DateTime safeTime = DateTime.SpecifyKind(h.CreatedAt, DateTimeKind.Unspecified);
+
+                        return new {
+                            h.BarangayName,
+                            h.HeatIndex,
+                            h.Lat,
+                            h.Lng,
+                            Date = safeTime.ToString("MMM dd, yyyy"),
+                            Time = safeTime.ToString("hh:mm tt"), 
+                            RawTimestamp = safeTime
+                        };
                     });
 
                     return Results.Ok(friendlyHistory);
