@@ -7,14 +7,25 @@ var builder = WebApplication.CreateBuilder(args);
 
 // This looks for a Render Environment Variable first
 // "DATABASE_URL" is the name of the key you will create in Render's dashboard
-string rawConnUrl = Environment.GetEnvironmentVariable("DATABASE_URL") 
-                    ?? builder.Configuration.GetConnectionString("DefaultConnection")!;
+// This will automatically find "BotSettings__TelegramToken" 
+// and map it to the "BotSettings" section
+// 1. This checks "ConnectionStrings:DefaultConnection" in appsettings.json
+// OR "ConnectionStrings__DefaultConnection" in Render Environment
+string? rawConn = builder.Configuration.GetConnectionString("DefaultConnection");
 
-// Use the parser we discussed earlier to make sure Npgsql can read it
-string connString = rawConnUrl.StartsWith("postgres://") || rawConnUrl.StartsWith("postgresql://")
-    ? ConvertPostgresUrlToConnString(rawConnUrl)
-    : rawConnUrl;
+// 2. Safety check: If it's null, the app should tell you why before crashing
+if (string.IsNullOrEmpty(rawConn)) 
+{
+    Console.WriteLine("❌ ERROR: Connection string is empty! Check Render Environment Variables.");
+    return; 
+}
 
+// 3. Convert if it's a URL (Render), or use as-is (Local)
+string connString = (rawConn.StartsWith("postgres://") || rawConn.StartsWith("postgresql://"))
+    ? ConvertPostgresUrlToConnString(rawConn)
+    : rawConn;
+
+// 4. Same for the Bot Token
 string botToken = builder.Configuration["BotSettings:TelegramToken"]!;
 
 // 1. ROBUST PATH CHECKING
