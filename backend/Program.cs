@@ -200,7 +200,8 @@ string ConvertPostgresUrlToConnString(string url)
            $"Password={userInfo[1]};" +
            $"Database={uri.AbsolutePath.Trim('/')};" +
            $"SslMode=Require;" +
-           $"Trust Server Certificate=true;";
+           $"Trust Server Certificate=true;" +
+           $"TimeZone=Asia/Manila;"; // <--- The Database Fix
 }
 
 public static class GlobalData {
