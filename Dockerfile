@@ -1,5 +1,7 @@
+
 # Stage 1: Build
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build-env
+RUN apt-get update && apt-get install -y libgssapi-krb5-2
 WORKDIR /app
 
 # Look inside the NEW folder name for the project file
@@ -18,3 +20,4 @@ COPY --from=build-env /app/out .
 # IMPORTANT: The DLL name is usually the same as the .csproj filename
 # If your file is backend.csproj, this is correct:
 ENTRYPOINT ["dotnet", "backend.dll"]
+
