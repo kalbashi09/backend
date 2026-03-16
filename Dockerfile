@@ -1,8 +1,11 @@
 
 # Stage 1: Build
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build-env
-RUN apt-get update && apt-get install -y libgssapi-krb5-2
+# This installs the missing security library in the Linux container
 WORKDIR /app
+
+# This installs the missing security library in the Linux container
+RUN apt-get update && apt-get install -y libgssapi-krb5-2
 
 # Look inside the NEW folder name for the project file
 COPY backend/*.csproj ./

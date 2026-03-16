@@ -120,7 +120,8 @@ catch (Exception ex)
     // Optionally return or stop here if the DB is mandatory
 }
 
-app.MapGet("/", () => "HEALERTSYS API is Running!");
+// Allow both GET (browser) and HEAD (Render/Postman)
+app.MapMethods("/", new[] { "GET", "HEAD" }, () => "HEALERTSYS API is Live and Running!");
 app.Run();
 
 // --- HELPERS ---
