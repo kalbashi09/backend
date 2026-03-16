@@ -121,7 +121,7 @@ namespace HeatAlert
                 Lat = lat,
                 Lng = lng,
                 HeatIndex = heatIndex,
-                CreatedAt = GlobalData.GetPHTime(), // <--- Calls the central helper
+                CreatedAt = DateTime.Now,
                 RelativeLocation = "Live Mobile Sensor"
             };
         }

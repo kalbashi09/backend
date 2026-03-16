@@ -103,7 +103,7 @@ _ = Task.Run(async () => {
             
             GlobalData.LatestAlert = result; 
             
-            Console.WriteLine($"[LOG] {result.BarangayName} | {result.HeatIndex}°C | {GlobalData.GetPHTime():hh:mm:ss tt}");
+            Console.WriteLine($"[LOG] {result.BarangayName} | {result.HeatIndex}°C | {DateTime.Now:hh:mm:ss tt}");
 
             if (result.HeatIndex >= 39 || result.HeatIndex < 29)
             {
@@ -200,20 +200,9 @@ string ConvertPostgresUrlToConnString(string url)
            $"Password={userInfo[1]};" +
            $"Database={uri.AbsolutePath.Trim('/')};" +
            $"SslMode=Require;" +
-           $"Trust Server Certificate=true;" +
-           $"TimeZone=Asia/Manila;"; // <--- The Database Fix
+           $"Trust Server Certificate=true;";
 }
-
 
 public static class GlobalData {
     public static AlertResult? LatestAlert { get; set; }
-    // One source of truth for time
-    public static DateTime GetPHTime() 
-    {
-        var phTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "Asia/Manila");
-        
-        // This is the "Magic" line: 
-        // It tells C# "Do not treat this as UTC, just treat it as a raw clock value."
-        return DateTime.SpecifyKind(phTime, DateTimeKind.Unspecified);
-    }
 }

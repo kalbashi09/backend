@@ -39,7 +39,7 @@ namespace HeatAlert
                 cmd.Parameters.AddWithValue("@lat", result.Lat);
                 cmd.Parameters.AddWithValue("@lng", result.Lng);
                 // SEND THE PH TIME WE ALREADY CALCULATED:
-                cmd.Parameters.AddWithValue("@created", result.CreatedAt);
+                cmd.Parameters.AddWithValue("@created", NpgsqlTypes.NpgsqlDbType.Timestamp, result.CreatedAt);
                 
                 await cmd.ExecuteNonQueryAsync();
                 Console.WriteLine($"--- DB Saved (Postgres): {result.BarangayName} recorded at {result.HeatIndex}°C ---");
