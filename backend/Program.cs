@@ -103,7 +103,7 @@ _ = Task.Run(async () => {
             
             GlobalData.LatestAlert = result; 
             
-            Console.WriteLine($"[LOG] {result.BarangayName} | {result.HeatIndex}°C | {DateTime.Now:hh:mm:ss tt}");
+            Console.WriteLine($"[LOG] {result.BarangayName} | {result.HeatIndex}°C | {GlobalData.GetPHTime():hh:mm:ss tt}");
 
             if (result.HeatIndex >= 39 || result.HeatIndex < 29)
             {
@@ -204,6 +204,10 @@ string ConvertPostgresUrlToConnString(string url)
            $"TimeZone=Asia/Manila;"; // <--- The Database Fix
 }
 
+
 public static class GlobalData {
     public static AlertResult? LatestAlert { get; set; }
+    // One source of truth for time
+    public static DateTime GetPHTime() => 
+        TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "Asia/Manila");
 }
