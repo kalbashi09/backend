@@ -205,4 +205,11 @@ string ConvertPostgresUrlToConnString(string url)
 
 public static class GlobalData {
     public static AlertResult? LatestAlert { get; set; }
+
+    public static DateTime GetPHTime() 
+    {
+        // Simply return UtcNow. 
+        // The Database's 'Asia/Manila' setting will handle the rest.
+        return DateTime.UtcNow; 
+    }
 }

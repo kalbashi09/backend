@@ -51,15 +51,20 @@ namespace HeatAlert
                     var history = await db.GetHistory(limit ?? 100);
                     if (!history.Any()) return Results.NotFound("Database is empty.");
 
-                    var friendlyHistory = history.Select(h => new {
+                    var friendlyHistory = history.Select(h => {
+                    // Tell C# this time is already in the 'Local' (PH) format
+                    DateTime localTime = DateTime.SpecifyKind(h.CreatedAt, DateTimeKind.Local);
+
+                    return new {
                         h.BarangayName,
                         h.HeatIndex,
                         h.Lat,
                         h.Lng,
-                        Date = h.CreatedAt.ToString("MMM dd, yyyy"),
-                        Time = h.CreatedAt.ToString("hh:mm tt"),
-                        RawTimestamp = h.CreatedAt
-                    });
+                        Date = localTime.ToString("MMM dd, yyyy"),
+                        Time = localTime.ToString("hh:mm tt"), 
+                        RawTimestamp = localTime
+                    };
+                });
 
                     return Results.Ok(friendlyHistory);
                 }
