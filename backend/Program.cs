@@ -81,8 +81,17 @@ _ = Task.Run(async () => {
     var simulator = new HeatSimulator(cachedJson); 
     var rng = new Random();
 
+    using var client = new HttpClient();
+
     while (true)
     {
+
+        // Inside your while(true) loop in Program.cs
+        try {
+            // Now we reuse the same client - Much more efficient!
+            await client.GetAsync("https://backend-9lv5.onrender.com/"); 
+        } catch { /* Ignore if it fails */ }
+
         try {
             int simTemp = rng.Next(25, 52); 
 
