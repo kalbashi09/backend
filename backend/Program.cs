@@ -11,7 +11,9 @@ var builder = WebApplication.CreateBuilder(args);
 // and map it to the "BotSettings" section
 // 1. This checks "ConnectionStrings:DefaultConnection" in appsettings.json
 // OR "ConnectionStrings__DefaultConnection" in Render Environment
-string? rawConn = builder.Configuration.GetConnectionString("DefaultConnection");
+// Updated Code: It checks "DefaultConnection" first, then tries "DATABASE_URL"
+string? rawConn = builder.Configuration.GetConnectionString("DefaultConnection") 
+                 ?? Environment.GetEnvironmentVariable("DATABASE_URL");
 
 // 2. Safety check: If it's null, the app should tell you why before crashing
 if (string.IsNullOrEmpty(rawConn)) 
@@ -118,7 +120,7 @@ catch (Exception ex)
     // Optionally return or stop here if the DB is mandatory
 }
 
-
+app.MapGet("/", () => "HEALERTSYS API is Running!");
 app.Run();
 
 // --- HELPERS ---
@@ -175,10 +177,11 @@ app.Run();
 
 string ConvertPostgresUrlToConnString(string url)
 {
+    if (string.IsNullOrEmpty(url)) return ""; // Prevent URI crash if null
+    
     var uri = new Uri(url);
     var userInfo = uri.UserInfo.Split(':');
     
-    // Render URLs sometimes omit the port (defaulting to 5432)
     int port = uri.Port <= 0 ? 5432 : uri.Port; 
 
     return $"Host={uri.Host};" +
