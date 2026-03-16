@@ -61,7 +61,8 @@ namespace HeatAlert
                     return new {
                         h.BarangayName,
                         h.HeatIndex,
-                        // ... other fields
+                        h.Lat,
+                        h.Lng,
                         Date = phTime.ToString("MMM dd, yyyy"),
                         Time = phTime.ToString("hh:mm tt"), // This will now show 12:49 PM
                         RawTimestamp = phTime
