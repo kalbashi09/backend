@@ -177,7 +177,17 @@ string ConvertPostgresUrlToConnString(string url)
 {
     var uri = new Uri(url);
     var userInfo = uri.UserInfo.Split(':');
-    return $"Host={uri.Host};Port={uri.Port};Username={userInfo[0]};Password={userInfo[1]};Database={uri.AbsolutePath.Trim('/')};SslMode=Require;Trust Server Certificate=true";
+    
+    // Render URLs sometimes omit the port (defaulting to 5432)
+    int port = uri.Port <= 0 ? 5432 : uri.Port; 
+
+    return $"Host={uri.Host};" +
+           $"Port={port};" + 
+           $"Username={userInfo[0]};" +
+           $"Password={userInfo[1]};" +
+           $"Database={uri.AbsolutePath.Trim('/')};" +
+           $"SslMode=Require;" +
+           $"Trust Server Certificate=true";
 }
 
 public static class GlobalData {
