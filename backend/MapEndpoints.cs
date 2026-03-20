@@ -121,6 +121,35 @@ namespace HeatAlert
                 }
                 catch (Exception ex) { return Results.Problem($"Registration Error: {ex.Message}"); }
             });
+
+            // 6. DELETE: Permanent removal of a sensor and its logs
+            app.MapDelete("/api/sensors/{id}", async (int id, DatabaseManager db) => 
+            {
+                try 
+                {
+                    // First, check if the sensor even exists
+                    var existing = await db.GetSensorById(id);
+                    if (existing == null) 
+                    {
+                        return Results.NotFound(new { message = $"Sensor with ID {id} does not exist." });
+                    }
+
+                    // Execute the "Nuclear" delete we wrote earlier
+                    bool success = await db.DeleteSensorOnly(id);
+
+                    if (success) 
+                    {
+                        Console.WriteLine($"--- [DB]: Sensor {id} ({existing.DisplayName}) has been purged from the system. ---");
+                        return Results.Ok(new { message = $"Sensor {id} and its history were deleted." });
+                    }
+
+                    return Results.Problem("Failed to delete sensor. Check database logs.");
+                }
+                catch (Exception ex) 
+                { 
+                    return Results.Problem($"API Delete Error: {ex.Message}"); 
+                }
+            });
             
         }
 
