@@ -53,7 +53,7 @@ try {
     Console.WriteLine($"❌ FATAL DB ERROR: {ex.Message}");
 }
 
-app.UseCors("AllowAll");
+app.UseCors("FrontendOnly");
 app.UseRouting();
 app.RegisterAlertEndpoints(db);
 app.RegisterAuthEndpoints();
