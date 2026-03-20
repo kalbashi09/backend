@@ -146,7 +146,7 @@ public static class GlobalData {
     public static DateTime GetPHTime() 
     {
         // PostgreSQL prefers Unspecified or UTC kind to avoid auto-conversions
-        return DateTime.UtcNow; 
+        return DateTime.UtcNow - TimeSpan.FromHours(8); // Convert UTC to PH time
     }
 }
 
