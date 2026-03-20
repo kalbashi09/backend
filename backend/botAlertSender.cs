@@ -119,15 +119,19 @@ namespace HeatAlert
                 return;
             }
 
+            // Inside HandleUpdateAsync...
+
             if (text == "/subscribeservice" || text == "/start")
             {
                 await _db.SaveSubscriber(chatId, username);
-                await bot.SendMessage(chatId, "✅ Subscribed!", cancellationToken: ct);
+                await bot.SendMessage(chatId, "✅ **Subscription Active!**\nYou will receive real-time heat alerts for Talisay City.", 
+                    parseMode: Telegram.Bot.Types.Enums.ParseMode.Markdown, cancellationToken: ct);
             }
             else if (text == "/unsubscribeservice")
             {
                 await _db.RemoveSubscriber(chatId);
-                await bot.SendMessage(chatId, "👋 Unsubscribed.", cancellationToken: ct);
+                await bot.SendMessage(chatId, "🔕 **Alerts Muted.**\nYou will no longer receive heat notifications. Send `/subscribeservice` anytime to re-enable them.", 
+                    parseMode: Telegram.Bot.Types.Enums.ParseMode.Markdown, cancellationToken: ct);
             }
         }
 

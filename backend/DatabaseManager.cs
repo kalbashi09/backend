@@ -161,13 +161,17 @@ namespace HeatAlert
             return logs;
         }
 
+        // 1. Update existing SaveSubscriber to handle re-activations
         public async Task SaveSubscriber(long chatId, string username) 
         {
             using var connection = new NpgsqlConnection(_connString);
             await connection.OpenAsync();
             
-            // Postgres uses 'ON CONFLICT DO NOTHING' instead of 'INSERT IGNORE'
-            string query = "INSERT INTO subscribers (chat_id, username) VALUES (@id, @user) ON CONFLICT (chat_id) DO NOTHING";
+            // Logic: If they exist, set is_subscribed to true. If not, insert new.
+            string query = @"
+                INSERT INTO subscribers (chat_id, username, is_subscribed) 
+                VALUES (@id, @user, true) 
+                ON CONFLICT (chat_id) DO UPDATE SET is_subscribed = true, username = EXCLUDED.username";
             
             using var cmd = new NpgsqlCommand(query, connection);
             cmd.Parameters.AddWithValue("@id", chatId);
@@ -175,12 +179,13 @@ namespace HeatAlert
             await cmd.ExecuteNonQueryAsync();
         }
 
+        // 2. Change RemoveSubscriber to a "Soft Delete" (Updates the boolean)
         public async Task RemoveSubscriber(long chatId) 
         {
             using var connection = new NpgsqlConnection(_connString);
             await connection.OpenAsync();
 
-            string query = "DELETE FROM subscribers WHERE chat_id = @id";
+            string query = "UPDATE subscribers SET is_subscribed = false WHERE chat_id = @id";
             using var cmd = new NpgsqlCommand(query, connection);
             cmd.Parameters.AddWithValue("@id", chatId);
             await cmd.ExecuteNonQueryAsync();
@@ -262,12 +267,16 @@ namespace HeatAlert
             Console.WriteLine($"--- [DB Update]: Sensor ID {id} patched with {updates.Count} changes. ---");
         }
 
+        // 3. Update the fetcher to ONLY get active subscribers
         public async Task<List<long>> GetAllSubscriberIds()
         {
             var ids = new List<long>();
             using var connection = new NpgsqlConnection(_connString);
             await connection.OpenAsync();
-            string query = "SELECT chat_id FROM subscribers";
+            
+            // CRITICAL: Filter by the new boolean column
+            string query = "SELECT chat_id FROM subscribers WHERE is_subscribed = true";
+            
             using var cmd = new NpgsqlCommand(query, connection);
             using var reader = await cmd.ExecuteReaderAsync();
             while (await reader.ReadAsync())
