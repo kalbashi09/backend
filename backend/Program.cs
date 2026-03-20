@@ -22,7 +22,11 @@ string botToken = builder.Configuration["BotSettings:TelegramToken"]!;
 
 // 2. SERVICES SETUP
 builder.Services.AddCors(options => {
-    options.AddPolicy("AllowAll", policy => policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
+    options.AddPolicy("FrontendOnly", policy => {
+        policy.WithOrigins("https://heatsync-zs03.onrender.com/") // ONLY your site
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
 });
 
 var db = new DatabaseManager(connString);
