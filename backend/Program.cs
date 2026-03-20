@@ -23,7 +23,7 @@ string botToken = builder.Configuration["BotSettings:TelegramToken"]!;
 // 2. SERVICES SETUP
 builder.Services.AddCors(options => {
     options.AddPolicy("FrontendOnly", policy => {
-        policy.WithOrigins("https://heatsync-zs03.onrender.com/") // ONLY your site
+        policy.WithOrigins("https://heatsync-zs03.onrender.com") // ONLY your site
               .AllowAnyMethod()
               .AllowAnyHeader();
     });
