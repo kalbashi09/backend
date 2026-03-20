@@ -57,7 +57,6 @@ namespace HeatAlert
 
             // 3. GET: Heat History (SECURED)
             app.MapGet("/api/live-heat-history", async (HttpContext context, DatabaseManager db, int? limit) => {
-                if (IsNotAuthorized(context)) return Results.Unauthorized();
                 try {
                     var history = await db.GetHistory(limit ?? 100);
                     if (!history.Any()) return Results.NotFound("No heat logs found.");
