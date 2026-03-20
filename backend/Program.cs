@@ -145,9 +145,8 @@ public static class GlobalData {
 
     public static DateTime GetPHTime() 
     {
-        // Get the actual PH Time instead of UTC
-        var phZone = TimeZoneInfo.FindSystemTimeZoneById("Asia/Manila");
-        return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, phZone);
+        // PostgreSQL prefers Unspecified or UTC kind to avoid auto-conversions
+        return DateTime.UtcNow; 
     }
 }
 
