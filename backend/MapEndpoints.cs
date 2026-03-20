@@ -115,7 +115,6 @@ namespace HeatAlert
 
             // 5. POST: Register Sensor
             app.MapPost("/api/register-sensor", async (HttpContext context, SensorNode newSensor, DatabaseManager db) => {
-                if (IsNotAuthorized(context)) return Results.Unauthorized();
                 try {
                     await db.CreateSensor(newSensor); 
                     return Results.Ok(new { message = $"Sensor {newSensor.SensorCode} registered!" });
