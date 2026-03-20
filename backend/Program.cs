@@ -145,8 +145,11 @@ public static class GlobalData {
 
     public static DateTime GetPHTime() 
     {
-        // PostgreSQL prefers Unspecified or UTC kind to avoid auto-conversions
-        return DateTime.UtcNow - TimeSpan.FromHours(8); // Convert UTC to PH time
+        var phZone = TimeZoneInfo.FindSystemTimeZoneById("Asia/Manila");
+        var phTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, phZone);
+        
+        // This tells the Database Driver: "Don't try to offset this, it's already local."
+        return DateTime.SpecifyKind(phTime, DateTimeKind.Unspecified);
     }
 }
 

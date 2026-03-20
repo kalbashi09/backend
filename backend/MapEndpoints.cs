@@ -63,22 +63,20 @@ namespace HeatAlert
                     if (!history.Any()) return Results.NotFound("No heat logs found.");
 
                     var friendlyHistory = history.Select(h => {
-                        // Adjust for Philippine Time (UTC+8)
-                        DateTime phTime = h.CreatedAt.AddHours(8);
-
-                        return new {
-                            h.SensorCode,
-                            h.DisplayName,
-                            h.BarangayName,
-                            h.HeatIndex,
-                            h.Lat,
-                            h.Lng,
-                            Date = phTime.ToString("MMM dd, yyyy"),
-                            Time = phTime.ToString("hh:mm tt"), 
-                            // NEW: Provide the machine-readable timestamp
-                            RawTime = phTime 
-                        };
-                    });
+                    // Let the RawTime remain exactly what is in the DB (UTC)
+                    // We will let the JavaScript frontend handle the +8 display.
+                    return new {
+                        h.SensorCode,
+                        h.DisplayName,
+                        h.BarangayName,
+                        h.HeatIndex,
+                        h.Lat,
+                        h.Lng,
+                        Date = h.CreatedAt.ToString("MMM dd, yyyy"),
+                        Time = h.CreatedAt.ToString("hh:mm tt"), 
+                        RawTime = h.CreatedAt 
+                    };
+                });
                     return Results.Ok(friendlyHistory);
                 }
                 catch (Exception ex) { return Results.Problem($"Database Error: {ex.Message}"); }
@@ -143,7 +141,8 @@ namespace HeatAlert
 
         private static string GetRelativeTime(DateTime time)
         {
-            var delta = DateTime.UtcNow.AddHours(8) - time;
+            // ❌ Change DateTime.UtcNow.AddHours(8) to just DateTime.UtcNow
+            var delta = DateTime.UtcNow - time; 
             if (delta.TotalMinutes < 1) return "Just now";
             if (delta.TotalMinutes < 60) return $"{(int)delta.TotalMinutes}m ago";
             if (delta.TotalHours < 24) return $"{(int)delta.TotalHours}h ago";
