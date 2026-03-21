@@ -40,7 +40,7 @@ namespace HeatAlert
                 // 30% Chance: The "Extreme" swings (Cool anomalies or Heatwaves)
                 // Logic: Wide swing from 15°C to 65°C
                 int extremeValue = _rng.Next(baselineTemp - 20, baselineTemp + 40);
-                finalTemp = Math.Clamp(extremeValue, 15, 65);
+                finalTemp = Math.Clamp(extremeValue, 15, 89);
             }
 
             return finalTemp;
