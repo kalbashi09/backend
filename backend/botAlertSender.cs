@@ -76,7 +76,7 @@ namespace HeatAlert
             {
                 // Choose emoji based on your GetDangerLevel logic
                 string emoji = spot.HeatIndex >= 49 ? "🔴" : 
-                            spot.HeatIndex >= 38 ? "🟡" :spot.HeatIndex >= 42 ? "🟠" : "🔵";
+                            spot.HeatIndex >= 42 ? "🟠" :spot.HeatIndex >= 38 ? "🟡" : "🔵";
                 
                 string level = _simulator.GetDangerLevel(spot.HeatIndex);
 
