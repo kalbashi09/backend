@@ -63,7 +63,7 @@ namespace HeatAlert
 
             // 3. Build the "Heartbeat" Message
             var sb = new System.Text.StringBuilder();
-            sb.AppendLine("🌡️ ***HEALERTSYS: HIGH HEAT REPORT***");
+            sb.AppendLine("🌡️ ***HEATSYNC: HIGH HEAT REPORT***");
             sb.AppendLine($"⏰ *Scanned at: {GlobalData.GetPHTime():hh:mm tt}*");
             sb.AppendLine("-----------------------------------");
 
@@ -76,7 +76,7 @@ namespace HeatAlert
             {
                 // Choose emoji based on your GetDangerLevel logic
                 string emoji = spot.HeatIndex >= 49 ? "🔴" : 
-                            spot.HeatIndex >= 42 ? "🟠" : "🟡";
+                            spot.HeatIndex >= 38 ? "🟡" :spot.HeatIndex >= 42 ? "🟠" : "🔵";
                 
                 string level = _simulator.GetDangerLevel(spot.HeatIndex);
 

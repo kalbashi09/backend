@@ -25,37 +25,37 @@ namespace HeatAlert
 
        public int GenerateReading(int baselineTemp)
         {
-            // 1. Roll for frequency (1-100)
             int roll = _rng.Next(1, 101);
-
             int finalTemp;
 
-            // 70% Chance: Stay near the "Normal" range (28 - 39)
+            // 70% Chance: Standard day-to-day fluctuations
             if (roll <= 70)
             {
-                // Logic: Stay within -3 to +5 of the baseline, but clamp it between 28 and 39
-                int normalValue = _rng.Next(baselineTemp - 3, baselineTemp + 6);
-                finalTemp = Math.Clamp(normalValue, 28, 39);
+                // Now allows for "Normal" and "Caution" ranges (25°C to 41°C)
+                int normalValue = _rng.Next(baselineTemp - 5, baselineTemp + 8);
+                finalTemp = Math.Clamp(normalValue, 25, 41);
             }
             else
             {
-                // 30% Chance: The "Extreme" range (20 - 90)
-                // Logic: Still use the baseline as an anchor, but with a much wider swing
-                int extremeValue = _rng.Next(baselineTemp - 15, baselineTemp + 55);
-                finalTemp = Math.Clamp(extremeValue, 20, 90);
+                // 30% Chance: The "Extreme" swings (Cool anomalies or Heatwaves)
+                // Logic: Wide swing from 15°C to 65°C
+                int extremeValue = _rng.Next(baselineTemp - 20, baselineTemp + 40);
+                finalTemp = Math.Clamp(extremeValue, 15, 65);
             }
 
             return finalTemp;
         }
 
-        // The Bot calls this to decide how to label the Telegram message
+        // UPDATED: Now perfectly matches your 5 Frontend/Map states
         public string GetDangerLevel(int heatIndex)
         {
-            if (heatIndex >= 49) return "🚨 EXTREME DANGER";
-            if (heatIndex >= 42) return "🔥 DANGER";
-            if (heatIndex >= 39) return "⚠️ EXTREME CAUTION";
-            if (heatIndex >= 30) return "✅ NORMAL";
-            return "❓ UNUSUAL (Possible Sensor Error or Cold Anomaly)";
+            if (heatIndex >= 49) return "🚨 EXTREME DANGER"; // RED
+            if (heatIndex >= 42) return "🔥 DANGER";         // BRAND ORANGE
+            if (heatIndex >= 38) return "⚠️ CAUTION";        // AMBER
+            if (heatIndex >= 26) return "✅ NORMAL";         // EMERALD
+            
+            // Anything below 26 is the Blue "Cool" state
+            return "❄️ COOL (Below Baseline)";               // BLUE
         }
     }
 }
