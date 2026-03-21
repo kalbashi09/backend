@@ -1,13 +1,12 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using HeatAlert;
 using Npgsql;
-using Microsoft.Extensions.Hosting;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // 1. CONFIGURATION & DATABASE CONNECTION
 string? rawConn = builder.Configuration.GetConnectionString("DefaultConnection") 
-                  ?? Environment.GetEnvironmentVariable("DATABASE_URL");
+                 ?? Environment.GetEnvironmentVariable("DATABASE_URL");
 
 if (string.IsNullOrEmpty(rawConn)) 
 {
@@ -24,7 +23,7 @@ string botToken = builder.Configuration["BotSettings:TelegramToken"]!;
 // 2. SERVICES SETUP
 builder.Services.AddCors(options => {
     options.AddPolicy("FrontendOnly", policy => {
-        policy.WithOrigins("https://heatsync-zs03.onrender.com") 
+        policy.WithOrigins("https://heatsync-zs03.onrender.com") // ONLY your site
               .AllowAnyMethod()
               .AllowAnyHeader();
     });
@@ -36,18 +35,16 @@ var bot = new BotAlertSender(botToken, db);
 builder.Services.AddSingleton(db);
 builder.Services.AddSingleton(bot);
 
-// --- THE PING TRICK: Register the Keep-Alive Service ---
-builder.Services.AddHostedService<RenderKeepAliveService>();
-
 builder.WebHost.ConfigureKestrel(options => 
 {
+    // Change "8080" to "5000"
     var port = Environment.GetEnvironmentVariable("PORT") ?? "5000"; 
     options.ListenAnyIP(int.Parse(port));
 });
 
 var app = builder.Build();
 
-// 3. DATABASE VERIFICATION
+// 3. DATABASE VERIFICATION (Run this BEFORE app.Run)
 try {
     using var conn = new NpgsqlConnection(connString);
     await conn.OpenAsync();
@@ -62,20 +59,31 @@ app.RegisterAlertEndpoints(db);
 app.RegisterAuthEndpoints();
 
 // 4. THE V3 SIMULATION ENGINE
+// 4. THE V3 SIMULATION ENGINE
 _ = Task.Run(async () => {
     bot.StartBot();
+    
     var simulator = new HeatSimulator(); 
+
+    // Temporary line to run once to see a valid hash in your console:
+    Console.WriteLine($"New Hash for 123456: {BCrypt.Net.BCrypt.HashPassword("123456")}");
 
     while (true)
     {
         try 
         {
             var sensors = await db.GetAllSensors(); 
-            var currentBatch = new List<AlertResult>();
+            var currentBatch = new List<AlertResult>(); // 1. Create a batch list
 
             foreach (var sensor in sensors)
             {
-                if (!sensor.IsActive) continue; 
+
+                // Fail-safe: Skip if somehow an inactive sensor got into the list
+                if (!sensor.IsActive) 
+                {
+                    Console.WriteLine($"❄️ [FREEZE] {sensor.DisplayName} is inactive. Skipping...");
+                    continue; 
+                }
 
                 int simTemp = simulator.GenerateReading(sensor.BaselineTemp); 
 
@@ -90,17 +98,25 @@ _ = Task.Run(async () => {
                     CreatedAt = GlobalData.GetPHTime() 
                 };
 
+                // Update the single most recent alert for the dashboard
                 GlobalData.LatestAlert = result; 
+
+                // 2. Save EVERYTHING to DB for history/graphs
                 await db.SaveHeatLog(result, sensor.Id); 
+
+                // 3. Add to our batch for the Telegram summary
                 currentBatch.Add(result);
                 
                 Console.WriteLine($"[V3 LOG] {sensor.DisplayName}: {simTemp}°C");
             }
 
+            // 4. Send ONE heartbeat for all "Alarming" spots (Sorted High to Low)
+            // This replaces the 'if' statement inside the loop
             await bot.BroadcastHeartbeatSummary(currentBatch);
         }
         catch (Exception ex) { Console.WriteLine($"Simulation Loop Error: {ex.Message}"); }
         
+        // Wait 30 seconds before the next full city scan
         await Task.Delay(30000); 
     }
 });
@@ -109,56 +125,23 @@ app.MapMethods("/", new[] { "GET", "HEAD" }, () => "HEALERTSYS V3 API is Live.")
 
 app.Run();
 
-// --- HELPERS & CLASSES ---
 
 string ConvertPostgresUrlToConnString(string url)
 {
     var uri = new Uri(url);
     var userInfo = uri.UserInfo.Split(':');
+    
     int port = uri.Port <= 0 ? 5432 : uri.Port; 
-    return $"Host={uri.Host};Port={port};Username={userInfo[0]};Password={userInfo[1]};Database={uri.AbsolutePath.Trim('/')};SslMode=Require;Trust Server Certificate=true;";
-}
 
-// THE PING TRICK CLASS
-public class RenderKeepAliveService : BackgroundService
-{
-    private readonly string _url;
-    private readonly HttpClient _httpClient = new();
-
-    public RenderKeepAliveService()
-    {
-        // 1. Try to get the dynamic URL from Render
-        // 2. Fallback to your hardcoded Render URL
-        // 3. Last fallback to localhost for development
-        _url = Environment.GetEnvironmentVariable("RENDER_EXTERNAL_URL") 
-               ?? "https://backend-9lv5.onrender.com";
-    }
-
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        // Small delay to let the server start up fully before the first ping
-        await Task.Delay(5000, stoppingToken);
-
-        Console.WriteLine($"🛰️ Keep-Alive Service Active: Targeting {_url}");
-        
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            try
-            {
-                // We use GetAsync to the root URL "/"
-                var response = await _httpClient.GetAsync(_url, stoppingToken);
-                Console.WriteLine($"[PING] {DateTime.Now:T} - Status: {response.StatusCode}");
-            }
-            catch (Exception ex)
-            {
-                // If it fails, we want to know why (DNS, Timeout, etc.)
-                Console.WriteLine($"[PING ERROR] {ex.Message}");
-            }
-
-            // Ping every 10 minutes to stay within Render's 15-min window
-            await Task.Delay(TimeSpan.FromMinutes(10), stoppingToken);
-        }
-    }
+    // REMOVED: Integrated Security
+    // ADDED: No Kerberos and basic SSL settings
+    return $"Host={uri.Host};" +
+           $"Port={port};" + 
+           $"Username={userInfo[0]};" +
+           $"Password={userInfo[1]};" +
+           $"Database={uri.AbsolutePath.Trim('/')};" +
+           $"SslMode=Require;" +
+           $"Trust Server Certificate=true;";
 }
 
 public static class GlobalData {
