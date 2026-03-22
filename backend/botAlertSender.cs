@@ -51,46 +51,54 @@ namespace HeatAlert
 
         public async Task BroadcastHeartbeatSummary(List<AlertResult> allReadings)
         {
-            // 1. Filter: Only include "Alarming" temps (39°C and above based on your reference)
-            // 2. Sort: Highest Heat Index first
             var alarmingSpots = allReadings
                 .Where(r => r.HeatIndex >= 39) 
                 .OrderByDescending(r => r.HeatIndex)
                 .ToList();
 
-            // If everything is Normal (30-38), the bot stays silent.
             if (!alarmingSpots.Any()) return; 
 
-            // 3. Build the "Heartbeat" Message
             var sb = new System.Text.StringBuilder();
             sb.AppendLine("🌡️ ***HEATSYNC: HIGH HEAT REPORT***");
             sb.AppendLine($"⏰ *Scanned at: {GlobalData.GetPHTime():hh:mm tt}*");
             sb.AppendLine("-----------------------------------");
 
-            // Get the top hotspot for the header
             var topSpot = alarmingSpots.First();
             sb.AppendLine($"🔝 **HIGHEST:** {topSpot.HeatIndex}°C in {topSpot.BarangayName}");
             sb.AppendLine();
 
             foreach (var spot in alarmingSpots)
             {
-                // Choose emoji based on your GetDangerLevel logic
                 string emoji = spot.HeatIndex >= 49 ? "🔴" : 
-                            spot.HeatIndex >= 42 ? "🟠" :spot.HeatIndex >= 38 ? "🟡" : "🔵";
+                            spot.HeatIndex >= 42 ? "🟠" : "🟡";
                 
                 string level = _simulator.GetDangerLevel(spot.HeatIndex);
-
                 sb.AppendLine($"{emoji} *{spot.HeatIndex}°C* - {level}");
                 sb.AppendLine($"📍 {spot.DisplayName} ({spot.BarangayName})");
                 sb.AppendLine();
             }
 
-            sb.AppendLine("📍 *Stay hydrated! Check the live map for more info.*");
+            sb.AppendLine("📍 *Tap the button below for the live interactive radar.*");
 
-            // 4. Send the single aggregated message
+            // --- WEB APP BUTTON CONFIGURATION ---
+            // IMPORTANT: This MUST be an HTTPS URL. 
+            // Use an ngrok/Cloudflare tunnel for your local 'frontend/mapUI.html'
+            string webAppUrl = "https://heatsync-zs03.onrender.com/mapUI.html";
+
+            var inlineKeyboard = new InlineKeyboardMarkup(new[]
+            {
+                new []
+                {
+                    InlineKeyboardButton.WithWebApp("🌍 OPEN LIVE RADAR", new WebAppInfo { Url = webAppUrl })
+                }
+            });
+
             var subscribers = await _db.GetAllSubscriberIds();
-            await BroadcastAlert(sb.ToString(), subscribers);
+            
+            // Pass the keyboard to the broadcast method
+            await BroadcastAlert(sb.ToString(), subscribers, inlineKeyboard);
         }
+
 
         private async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, CancellationToken ct)
         {
@@ -206,15 +214,25 @@ namespace HeatAlert
             return Task.CompletedTask;
         }
 
-        public async Task BroadcastAlert(string alertMsg, List<long> subscriberIds)
+        public async Task BroadcastAlert(string alertMsg, List<long> subscriberIds, InlineKeyboardMarkup? keyboard = null)
         {
             int sentCount = 0;
             foreach (var id in subscriberIds)
             {
-                try {
-                    await _botClient.SendMessage(chatId: id, text: alertMsg);
+                try 
+                {
+                    await _botClient.SendMessage(
+                        chatId: id, 
+                        text: alertMsg, 
+                        parseMode: Telegram.Bot.Types.Enums.ParseMode.Markdown,
+                        replyMarkup: keyboard // This is where the magic happens
+                    );
                     sentCount++;
-                } catch { /* Ignore blocked bots */ }
+                } 
+                catch (Exception ex) 
+                { 
+                    Console.WriteLine($"[BROADCAST ERROR] User {id}: {ex.Message}"); 
+                }
             }
             Console.WriteLine($"📢 Broadcast: {sentCount} users notified.");
         }
