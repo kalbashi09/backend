@@ -2,6 +2,8 @@ using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
+using System.Text.Json;
+using System.IO;
 
 namespace HeatAlert
 {
@@ -16,11 +18,28 @@ namespace HeatAlert
         // 5-cycle manual sensor stage: sensorId -> (remainingCycles, fixedHeatIndex)
         public static readonly Dictionary<int, (int remainingCycles, int fixedHeatIndex)> ManualSensorSessions = new();
 
+        // Barangay GeoJSON features
+        private List<GeoJsonFeature> _barangayFeatures;
+
         // Removed: _mapData string
         public BotAlertSender(string token, DatabaseManager db)
         {
             _botClient = new TelegramBotClient(token);
             _db = db;
+
+            // Load barangay GeoJSON
+            string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "sharedresource", "talisaycitycebu.json");
+            if (File.Exists(jsonPath))
+            {
+                string json = File.ReadAllText(jsonPath);
+                var collection = JsonSerializer.Deserialize<FeatureCollection>(json);
+                _barangayFeatures = collection?.features ?? new List<GeoJsonFeature>();
+            }
+            else
+            {
+                _barangayFeatures = new List<GeoJsonFeature>();
+                Console.WriteLine("Warning: talisaycitycebu.json not found. Barangay detection disabled.");
+            }
         }
 
         public void StartBot()
@@ -165,32 +184,36 @@ namespace HeatAlert
             int targetHeat = command switch
             {
                 "/exdanger" => 86,
-                "/danger" => 45,
+                "/danger" => 49,
                 "/caution" => 40,
-                "/normal" => 32,
+                "/normal" => 31,
                 _ => 25
             };
 
-            // 2) Activate the sensor for the next 5 simulation cycles
+            // 2) Get barangay from GPS
+            double currentLat = message.Location!.Latitude;
+            double currentLng = message.Location.Longitude;
+            string barangay = GetBarangayFromPoint(currentLat, currentLng, _barangayFeatures);
+
+            // 3) Activate the sensor for the next 5 simulation cycles
             var sensorDto = new SensorUpdateDto
             {
                 IsActive = true,
-                BaselineTemp = targetHeat // lock-in the heat for those cycles too
+                BaselineTemp = targetHeat, // lock-in the heat for those cycles too
+                Barangay = barangay
             };
             await _db.UpdateSensorFlexible(sensor.Id, sensorDto);
 
             ManualSensorSessions[sensor.Id] = (remainingCycles: 5, fixedHeatIndex: targetHeat);
 
-            // 3) Update location to current ping position
-            double currentLat = message.Location!.Latitude;
-            double currentLng = message.Location.Longitude;
+            // 4) Update location to current ping position
             await _db.UpdateSensorLocation(sensor.Id, currentLat, currentLng);
 
             var result = new AlertResult
             {
                 SensorCode = sensor.SensorCode,
                 DisplayName = sensor.DisplayName,
-                BarangayName = sensor.Barangay,
+                BarangayName = barangay,
                 RelativeLocation = "Mobile Surveyor",
                 Lat = currentLat,
                 Lng = currentLng,
@@ -201,7 +224,7 @@ namespace HeatAlert
             await ProcessAndBroadcastAlert(result, sensor.Id);
 
             await bot.SendMessage(chatId,
-                $"📍 Mobile sensor activated (5 cycles) at {currentLat:F5}, {currentLng:F5} with {targetHeat}°C.",
+                $"📍 Mobile sensor activated (5 cycles) at {currentLat:F5}, {currentLng:F5} with {targetHeat}°C in {barangay}.",
                 cancellationToken: ct);
 
             _pendingSimulations.Remove(chatId);
@@ -259,5 +282,63 @@ namespace HeatAlert
             }
             Console.WriteLine($"📢 Broadcast: {sentCount} users notified.");
         }
+
+        // Point-in-polygon using ray-casting algorithm
+        private bool IsPointInPolygon(double x, double y, double[][] polygon)
+        {
+            int n = polygon.Length;
+            bool inside = false;
+            for (int i = 0, j = n - 1; i < n; j = i++)
+            {
+                double xi = polygon[i][0], yi = polygon[i][1];
+                double xj = polygon[j][0], yj = polygon[j][1];
+                if (((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi))
+                {
+                    inside = !inside;
+                }
+            }
+            return inside;
+        }
+
+        private string GetBarangayFromPoint(double lat, double lng, List<GeoJsonFeature> features)
+        {
+            foreach (var feature in features)
+            {
+                if (feature.geometry?.type == "Polygon" && feature.geometry.coordinates?.Length > 0)
+                {
+                    var polygon = feature.geometry.coordinates[0]; // outer ring
+                    if (IsPointInPolygon(lng, lat, polygon))
+                    {
+                        return feature.properties?.NAME_3 ?? "Unknown Barangay";
+                    }
+                }
+            }
+            return "Outside of Talisay City";
+        }
+    }
+
+    // GeoJSON classes
+    public class FeatureCollection
+    {
+        public string type { get; set; }
+        public List<GeoJsonFeature> features { get; set; }
+    }
+
+    public class GeoJsonFeature
+    {
+        public string type { get; set; }
+        public Geometry geometry { get; set; }
+        public Properties properties { get; set; }
+    }
+
+    public class Geometry
+    {
+        public string type { get; set; }
+        public double[][][] coordinates { get; set; }
+    }
+
+    public class Properties
+    {
+        public string NAME_3 { get; set; }
     }
 }
