@@ -48,6 +48,7 @@ var bot = new BotAlertSender(botToken, db);
 
 builder.Services.AddSingleton(db);
 builder.Services.AddSingleton(bot);
+builder.Services.AddHostedService<RenderKeepAliveService>();
 
 builder.WebHost.ConfigureKestrel(options => 
 {
@@ -77,7 +78,6 @@ _ = Task.Run(async () => {
     bot.StartBot();
     
     var simulator = new HeatSimulator(); 
-    int pingCounter = 0;
 
     // Temporary line to run once to see a valid hash in your console:
     Console.WriteLine($"New Hash for deV000bknd01: {BCrypt.Net.BCrypt.HashPassword("deV000bknd01")}");
@@ -147,23 +147,6 @@ _ = Task.Run(async () => {
             await bot.BroadcastHeartbeatSummary(currentBatch);
         }
         catch (Exception ex) { Console.WriteLine($"Simulation Loop Error: {ex.Message}"); }
-        
-        // Self-ping every 10 minutes (20 * 30s = 600s)
-        pingCounter++;
-        if (pingCounter >= 20)
-        {
-            try
-            {
-                using var client = new HttpClient();
-                await client.GetAsync("https://backend-9lv5.onrender.com/");
-                Console.WriteLine("Self-ping sent to keep server alive.");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Self-ping failed: {ex.Message}");
-            }
-            pingCounter = 0;
-        }
         
         // Wait 30 seconds before the next full city scan
         await Task.Delay(30000); 
@@ -241,4 +224,40 @@ public class SensorUpdateDto
 public class LoginRequest {
     public string PersonnelId { get; set; }
     public string Passcode { get; set; }
+}
+
+public class RenderKeepAliveService : BackgroundService
+{
+    private readonly HttpClient _httpClient;
+
+    public RenderKeepAliveService()
+    {
+        _httpClient = new HttpClient();
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                var response = await _httpClient.GetAsync("https://backend-9lv5.onrender.com/", stoppingToken);
+                if (response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine("Self-ping sent to keep server alive.");
+                }
+                else
+                {
+                    Console.WriteLine($"Self-ping failed with status: {response.StatusCode}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Self-ping failed: {ex.Message}");
+            }
+
+            // Wait 10 minutes (600 seconds) before next ping
+            await Task.Delay(TimeSpan.FromMinutes(10), stoppingToken);
+        }
+    }
 }
