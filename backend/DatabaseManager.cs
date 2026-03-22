@@ -114,6 +114,62 @@ namespace HeatAlert
             return null;
         }
 
+        public async Task<SensorNode?> GetSensorByCode(string sensorCode)
+        {
+            using var connection = new NpgsqlConnection(_connString);
+            await connection.OpenAsync();
+
+            string query = "SELECT id, sensor_code, display_name, barangay, latitude, longitude, baseline_temp, is_active, environment_type FROM sensor_registry WHERE sensor_code = @code";
+            using var cmd = new NpgsqlCommand(query, connection);
+            cmd.Parameters.AddWithValue("@code", sensorCode);
+            using var reader = await cmd.ExecuteReaderAsync();
+
+            if (await reader.ReadAsync())
+            {
+                return new SensorNode
+                {
+                    Id = reader.GetInt32(0),
+                    SensorCode = reader.GetString(1),
+                    DisplayName = reader.GetString(2),
+                    Barangay = reader.GetString(3),
+                    Lat = (double)reader.GetDecimal(4),
+                    Lng = (double)reader.GetDecimal(5),
+                    BaselineTemp = reader.GetInt32(6),
+                    IsActive = reader.GetBoolean(7),
+                    EnvironmentType = reader.IsDBNull(8) ? "Unknown" : reader.GetString(8)
+                };
+            }
+
+            return null;
+        }
+
+        public async Task EnsureSubscriberSensor(long chatId, string username)
+        {
+            string sensorCode = $"MOBILE_{chatId}";
+            var existing = await GetSensorByCode(sensorCode);
+            if (existing != null) return;
+
+            var newSensor = new SensorNode
+            {
+                SensorCode = sensorCode,
+                DisplayName = $"{username ?? "Subscriber"} (Mobile)",
+                Barangay = "Dynamic GPS",
+                Lat = 10.2399, // Default Talisay center or update on first location ping
+                Lng = 123.8162,
+                BaselineTemp = 25,
+                EnvironmentType = "Mobile",
+                IsActive = false
+            };
+
+            await CreateSensor(newSensor);
+        }
+
+        public async Task DeactivateSensor(int id)
+        {
+            var dto = new SensorUpdateDto { IsActive = false };
+            await UpdateSensorFlexible(id, dto);
+        }
+
         public async Task<List<AlertResult>> GetHistory(int limit = 100, int offset = 0)
         {
             var logs = new List<AlertResult>();

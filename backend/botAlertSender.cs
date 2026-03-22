@@ -13,11 +13,14 @@ namespace HeatAlert
 
         private static readonly Dictionary<long, string> _pendingSimulations = new();
 
+        // 5-cycle manual sensor stage: sensorId -> (remainingCycles, fixedHeatIndex)
+        public static readonly Dictionary<int, (int remainingCycles, int fixedHeatIndex)> ManualSensorSessions = new();
+
         // Removed: _mapData string
         public BotAlertSender(string token, DatabaseManager db)
         {
-        _botClient = new TelegramBotClient(token);
-        _db = db;
+            _botClient = new TelegramBotClient(token);
+            _db = db;
         }
 
         public void StartBot()
@@ -99,7 +102,6 @@ namespace HeatAlert
             await BroadcastAlert(sb.ToString(), subscribers, inlineKeyboard);
         }
 
-
         private async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, CancellationToken ct)
         {
             if (update.Message?.Location != null)
@@ -148,39 +150,60 @@ namespace HeatAlert
             long chatId = message.Chat.Id;
             if (!_pendingSimulations.TryGetValue(chatId, out var command)) command = "/danger";
 
+            string username = message.From?.Username ?? "UnknownUser";
+
+            // 1) Ensure every subscriber has an allocated sensor row
+            await _db.EnsureSubscriberSensor(chatId, username);
+            string sensorCode = $"MOBILE_{chatId}";
+            var sensor = await _db.GetSensorByCode(sensorCode);
+            if (sensor == null)
+            {
+                await bot.SendMessage(chatId, "⚠️ Sensor creation failed. Please try again.", cancellationToken: ct);
+                return;
+            }
+
+            int targetHeat = command switch
+            {
+                "/exdanger" => 50,
+                "/danger" => 43,
+                "/caution" => 40,
+                "/normal" => 32,
+                _ => 25
+            };
+
+            // 2) Activate the sensor for the next 5 simulation cycles
+            var sensorDto = new SensorUpdateDto
+            {
+                IsActive = true,
+                BaselineTemp = targetHeat // lock-in the heat for those cycles too
+            };
+            await _db.UpdateSensorFlexible(sensor.Id, sensorDto);
+
+            ManualSensorSessions[sensor.Id] = (remainingCycles: 5, fixedHeatIndex: targetHeat);
+
+            // 3) Update location to current ping position
             double currentLat = message.Location!.Latitude;
             double currentLng = message.Location.Longitude;
-
-            // --- INNOVATIVE STEP: Update the Registry first ---
-            // This moves the "pin" on your map to your current phone GPS
-            await _db.UpdateSensorLocation(999, currentLat, currentLng);
-
-            int simTemp = command switch {
-                "/exdanger" => 50,
-                "/danger"   => 43,
-                "/caution"  => 40,
-                "/normal"   => 32,
-                _           => 25 
-            };
+            await _db.UpdateSensorLocation(sensor.Id, currentLat, currentLng);
 
             var result = new AlertResult
             {
-                SensorCode = "MANUAL-01",
-                DisplayName = "Mobile Surveyor",
-                BarangayName = "Dynamic GPS", 
-                RelativeLocation = "Surveyor (Moving)",
-                Lat = currentLat, 
-                Lng = currentLng, 
-                HeatIndex = simTemp,
-                CreatedAt = DateTime.UtcNow // Use UTC for the DB
+                SensorCode = sensor.SensorCode,
+                DisplayName = sensor.DisplayName,
+                BarangayName = sensor.Barangay,
+                RelativeLocation = "Mobile Surveyor",
+                Lat = currentLat,
+                Lng = currentLng,
+                HeatIndex = targetHeat,
+                CreatedAt = GlobalData.GetPHTime()
             };
 
-            // This saves the log AND updates GlobalData.LatestAlert
-            await ProcessAndBroadcastAlert(result, 999);
+            await ProcessAndBroadcastAlert(result, sensor.Id);
 
-            await bot.SendMessage(chatId, $"📍 Location Updated & Alert Sent!\nMap Pin moved to: {currentLat}, {currentLng}", 
-                replyMarkup: new ReplyKeyboardRemove(), cancellationToken: ct);
-            
+            await bot.SendMessage(chatId,
+                $"📍 Mobile sensor activated (5 cycles) at {currentLat:F5}, {currentLng:F5} with {targetHeat}°C.",
+                cancellationToken: ct);
+
             _pendingSimulations.Remove(chatId);
         }
 
