@@ -100,6 +100,15 @@ namespace HeatAlert
                 }
             });
 
+            // 5. POST: Register Sensor
+            app.MapPost("/api/register-sensor", async (HttpContext context, SensorNode newSensor, DatabaseManager db) => {
+                try {
+                    await db.CreateSensor(newSensor); 
+                    return Results.Ok(new { message = $"Sensor {newSensor.SensorCode} registered!" });
+                }
+                catch (Exception ex) { return Results.Problem($"Registration Error: {ex.Message}"); }
+            });
+
             // 4. POST: Log Heat
             app.MapPost("/api/log-heat", async (HttpContext context, SensorReportRequest request, DatabaseManager db, BotAlertSender bot) => {
                 if (IsNotAuthorized(context)) return Results.Unauthorized();
@@ -123,14 +132,6 @@ namespace HeatAlert
                 catch (Exception ex) { return Results.Problem($"API Error: {ex.Message}"); }
             });
 
-            // 5. POST: Register Sensor
-            app.MapPost("/api/register-sensor", async (HttpContext context, SensorNode newSensor, DatabaseManager db) => {
-                try {
-                    await db.CreateSensor(newSensor); 
-                    return Results.Ok(new { message = $"Sensor {newSensor.SensorCode} registered!" });
-                }
-                catch (Exception ex) { return Results.Problem($"Registration Error: {ex.Message}"); }
-            });
 
             // 6. DELETE: Permanent removal of a sensor and its logs
             app.MapDelete("/api/sensors/{id}", async (int id, DatabaseManager db) => 
