@@ -17,30 +17,21 @@ namespace HeatAlert
         {
             app.MapPost("/api/auth/login", async (LoginRequest request, DatabaseManager db) =>
             {
-                Console.WriteLine($"--- [AUTH ATTEMPT]: ID: {request.PersonnelId} ---");
-
                 var admin = await db.GetAdminByPersonnelId(request.PersonnelId);
 
-                if (admin == null) 
+                // Even if admin is null, we verify against a 'fake' hash 
+                // to ensure the CPU work is roughly the same.
+                string hashToVerify = admin?.Hash ?? "$2a$11$SimulatedHashForTimingProtection";
+                bool isValid = BCrypt.Net.BCrypt.Verify(request.Passcode, hashToVerify);
+
+                // Now check both conditions at once
+                if (admin == null || !isValid) 
                 {
-                    Console.WriteLine("--- [AUTH ERROR]: Personnel ID not found in DB ---");
-                    return Results.Json(new { message = "Invalid ID" }, statusCode: 401);
+                    return Results.Json(new { message = "Invalid Credential" }, statusCode: 401);
                 }
 
-                // Verify Passcode
-                bool isValid = BCrypt.Net.BCrypt.Verify(request.Passcode, admin.Hash);
-                Console.WriteLine($"--- [AUTH RESULT]: Password Match = {isValid} ---");
-
-                if (!isValid) return Results.Json(new { message = "Incorrect Passcode" }, statusCode: 401);
-
-                // 🔥 PLUGGED IN: Record the login timestamp using the admin's unique ID
                 await db.UpdateAdminLoginTime(admin.Id);
-
-                return Results.Ok(new { 
-                    message = "Success", 
-                    user = admin.FullName,
-                    pid = admin.PersonnelId 
-                });
+                return Results.Ok(new { message = "Success", user = admin.FullName });
             });
         }
 
