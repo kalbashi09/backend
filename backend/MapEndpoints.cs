@@ -91,11 +91,22 @@ namespace HeatAlert
 
             app.MapPatch("/api/sensors/{id}", async (int id, SensorUpdateDto dto, DatabaseManager db) => 
             {
-                var existing = await db.GetSensorById(id);
-                if (existing == null) return Results.NotFound($"Sensor {id} not found.");
+                try 
+                {
+                    var existing = await db.GetSensorById(id);
+                    if (existing == null) return Results.NotFound($"Sensor {id} not found.");
 
-                await db.UpdateSensorFlexible(id, dto);
-                return Results.Ok(new { message = "Sensor updated successfully." });
+                    await db.UpdateSensorFlexible(id, dto);
+                    return Results.Ok(new { message = "Sensor updated successfully." });
+                }
+                catch (Exception ex) when (ex.Message == "DUPLICATE_CODE")
+                {
+                    return Results.Conflict("This Sensor Code is already assigned to another location.");
+                }
+                catch (Exception ex) 
+                { 
+                    return Results.Problem(ex.Message); 
+                }
             });
 
             // 4. POST: Log Heat
