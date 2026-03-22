@@ -80,34 +80,65 @@ namespace HeatAlert
                 catch (Exception ex) { return Results.Problem($"Database Error: {ex.Message}"); }
             });
 
-            app.MapPatch("/api/sensors/{id}", async (int id, SensorUpdateDto dto, DatabaseManager db) => 
-            {
-                try 
-                {
-                    var existing = await db.GetSensorById(id);
-                    if (existing == null) return Results.NotFound($"Sensor {id} not found.");
+            // 3. PATCH: Update Sensor
+app.MapPatch("/api/sensors/{id}", async (int id, SensorUpdateDto dto, DatabaseManager db) => 
+{
+    try 
+    {
+        // 1. The "Space" Check (Validation)
+        // Use .GetValueOrDefault() to treat null as 0, or check .HasValue
+        if (dto.Lat.HasValue && Math.Abs(dto.Lat.Value) > 90) 
+        {
+            return Results.Json(new { message = "❌ Latitude is outside Earth's boundaries!" }, statusCode: 400);
+        }
 
-                    await db.UpdateSensorFlexible(id, dto);
-                    return Results.Ok(new { message = "Sensor updated successfully." });
-                }
-                catch (Exception ex) when (ex.Message == "DUPLICATE_CODE")
-                {
-                    return Results.Conflict("This Sensor Code is already assigned to another location.");
-                }
-                catch (Exception ex) 
-                { 
-                    return Results.Problem(ex.Message); 
-                }
-            });
+        if (dto.Lng.HasValue && Math.Abs(dto.Lng.Value) > 180) 
+        {
+            return Results.Json(new { message = "❌ Longitude is outside Earth's boundaries!" }, statusCode: 400);
+        }
 
-            // 5. POST: Register Sensor
-            app.MapPost("/api/register-sensor", async (HttpContext context, SensorNode newSensor, DatabaseManager db) => {
-                try {
-                    await db.CreateSensor(newSensor); 
-                    return Results.Ok(new { message = $"Sensor {newSensor.SensorCode} registered!" });
-                }
-                catch (Exception ex) { return Results.Problem($"Registration Error: {ex.Message}"); }
-            });
+        var existing = await db.GetSensorById(id);
+        if (existing == null) 
+            return Results.Json(new { message = $"❌ Sensor {id} not found." }, statusCode: 404);
+
+        await db.UpdateSensorFlexible(id, dto);
+        return Results.Ok(new { message = $"✅ {dto.SensorCode} updated successfully." });
+    }
+    catch (Exception ex) when (ex.Message.Contains("23505") || ex.Message.Contains("DUPLICATE"))
+    {
+        // Catches PostgreSQL unique constraint (23505) or custom "DUPLICATE_CODE"
+        return Results.Json(new { message = $"❌ Conflict: The code \"{dto.SensorCode}\" is already assigned to another sensor." }, statusCode: 409);
+    }
+    catch (Exception ex) 
+    { 
+        // Tell it like it is for other errors
+        return Results.Json(new { message = $"❌ Server Error: {ex.Message}" }, statusCode: 500); 
+    }
+});
+
+// 5. POST: Register Sensor
+app.MapPost("/api/register-sensor", async (SensorNode newSensor, DatabaseManager db) => 
+{
+    try 
+    {
+        // 1. Geography Check
+        if (Math.Abs(newSensor.Lat) > 90 || Math.Abs(newSensor.Lng) > 180)
+        {
+            return Results.Json(new { message = "❌ Error: Coordinates are outside Earth's limits. Check Lat/Long." }, statusCode: 400);
+        }
+
+        await db.CreateSensor(newSensor); 
+        return Results.Ok(new { message = $"✅ Sensor {newSensor.SensorCode} registered!" });
+    }
+    catch (Exception ex) when (ex.Message.Contains("23505") || ex.Message.Contains("Duplicate"))
+    {
+        return Results.Json(new { message = $"❌ Conflict: The code \"{newSensor.SensorCode}\" is already assigned to another sensor." }, statusCode: 409);
+    }
+    catch (Exception ex) 
+    { 
+        return Results.Json(new { message = $"❌ Registration Error: {ex.Message}" }, statusCode: 500); 
+    }
+});
 
             // 4. POST: Log Heat
             app.MapPost("/api/log-heat", async (HttpContext context, SensorReportRequest request, DatabaseManager db, BotAlertSender bot) => {
