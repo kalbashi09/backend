@@ -2,6 +2,7 @@
 using HeatAlert;
 using Npgsql;
 using Microsoft.Extensions.Hosting;
+using System.Net.Http;
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
@@ -76,6 +77,7 @@ _ = Task.Run(async () => {
     bot.StartBot();
     
     var simulator = new HeatSimulator(); 
+    int pingCounter = 0;
 
     // Temporary line to run once to see a valid hash in your console:
     Console.WriteLine($"New Hash for deV000bknd01: {BCrypt.Net.BCrypt.HashPassword("deV000bknd01")}");
@@ -145,6 +147,23 @@ _ = Task.Run(async () => {
             await bot.BroadcastHeartbeatSummary(currentBatch);
         }
         catch (Exception ex) { Console.WriteLine($"Simulation Loop Error: {ex.Message}"); }
+        
+        // Self-ping every 10 minutes (20 * 30s = 600s)
+        pingCounter++;
+        if (pingCounter >= 20)
+        {
+            try
+            {
+                using var client = new HttpClient();
+                await client.GetAsync("https://backend-9lv5.onrender.com/");
+                Console.WriteLine("Self-ping sent to keep server alive.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Self-ping failed: {ex.Message}");
+            }
+            pingCounter = 0;
+        }
         
         // Wait 30 seconds before the next full city scan
         await Task.Delay(30000); 
