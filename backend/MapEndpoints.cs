@@ -80,53 +80,27 @@ namespace HeatAlert
                 catch (Exception ex) { return Results.Problem($"Database Error: {ex.Message}"); }
             });
 
-            // 3. PATCH: Update Sensor
             app.MapPatch("/api/sensors/{id}", async (int id, SensorUpdateDto dto, DatabaseManager db) => 
             {
                 try 
                 {
                     var existing = await db.GetSensorById(id);
-                    if (existing == null) 
-                        return Results.Json(new { message = $"Sensor {id} not found." }, statusCode: 404);
+                    if (existing == null) return Results.NotFound($"Sensor {id} not found.");
 
                     await db.UpdateSensorFlexible(id, dto);
                     return Results.Ok(new { message = "Sensor updated successfully." });
                 }
-                catch (Exception ex) when (ex.Message.Contains("DUPLICATE") || ex.Message.Contains("23505")) // PostgreSQL Unique Violation code
+                catch (Exception ex) when (ex.Message == "DUPLICATE_CODE")
                 {
-                    return Results.Json(new { message = "This Sensor Code is already assigned to another location." }, statusCode: 409);
+                    return Results.Conflict("This Sensor Code is already assigned to another location.");
                 }
                 catch (Exception ex) 
                 { 
-                    // Log the full error to Render Console for you to see
-                    Console.WriteLine($"[PATCH ERROR]: {ex.Message}");
-                    return Results.Json(new { message = $"Update Error: {ex.Message}" }, statusCode: 500); 
+                    return Results.Problem(ex.Message); 
                 }
             });
 
-            // 4. POST: Register Sensor
-            app.MapPost("/api/register-sensor", async (SensorNode newSensor, DatabaseManager db) => 
-            {
-                try 
-                {
-                    if (string.IsNullOrEmpty(newSensor.SensorCode))
-                        return Results.Json(new { message = "Sensor Code is required." }, statusCode: 400);
-
-                    await db.CreateSensor(newSensor); 
-                    return Results.Ok(new { message = $"Sensor {newSensor.SensorCode} registered successfully!" });
-                }
-                catch (Exception ex) when (ex.Message.Contains("23505")) 
-                {
-                    return Results.Json(new { message = "Conflict: That Sensor Code is already registered." }, statusCode: 409);
-                }
-                catch (Exception ex) 
-                { 
-                    Console.WriteLine($"[POST ERROR]: {ex.Message}");
-                    return Results.Json(new { message = $"Registration Error: {ex.Message}" }, statusCode: 500); 
-                }
-            });
-
-            // 5. POST: Log Heat
+            // 4. POST: Log Heat
             app.MapPost("/api/log-heat", async (HttpContext context, SensorReportRequest request, DatabaseManager db, BotAlertSender bot) => {
                 if (IsNotAuthorized(context)) return Results.Unauthorized();
                 try {
@@ -149,7 +123,14 @@ namespace HeatAlert
                 catch (Exception ex) { return Results.Problem($"API Error: {ex.Message}"); }
             });
 
-            
+            // 5. POST: Register Sensor
+            app.MapPost("/api/register-sensor", async (HttpContext context, SensorNode newSensor, DatabaseManager db) => {
+                try {
+                    await db.CreateSensor(newSensor); 
+                    return Results.Ok(new { message = $"Sensor {newSensor.SensorCode} registered!" });
+                }
+                catch (Exception ex) { return Results.Problem($"Registration Error: {ex.Message}"); }
+            });
 
             // 6. DELETE: Permanent removal of a sensor and its logs
             app.MapDelete("/api/sensors/{id}", async (int id, DatabaseManager db) => 
