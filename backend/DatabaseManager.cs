@@ -193,78 +193,92 @@ namespace HeatAlert
 
         public async Task CreateSensor(SensorNode sensor)
         {
-            using var connection = new NpgsqlConnection(_connString);
-            await connection.OpenAsync();
+            
+            try {
+                using var connection = new NpgsqlConnection(_connString);
+                await connection.OpenAsync();
 
-            string query = @"INSERT INTO sensor_registry 
-                (sensor_code, display_name, barangay, latitude, longitude, baseline_temp, environment_type, is_active) 
-                VALUES (@code, @name, @brgy, @lat, @lng, @base, @env, @active)";
+                string query = @"INSERT INTO sensor_registry 
+                    (sensor_code, display_name, barangay, latitude, longitude, baseline_temp, environment_type, is_active) 
+                    VALUES (@code, @name, @brgy, @lat, @lng, @base, @env, @active)";
 
-            using var cmd = new NpgsqlCommand(query, connection);
-            cmd.Parameters.AddWithValue("@code", sensor.SensorCode);
-            cmd.Parameters.AddWithValue("@name", sensor.DisplayName);
-            cmd.Parameters.AddWithValue("@brgy", sensor.Barangay);
-            cmd.Parameters.AddWithValue("@lat", sensor.Lat);
-            cmd.Parameters.AddWithValue("@lng", sensor.Lng);
-            cmd.Parameters.AddWithValue("@base", sensor.BaselineTemp);
-            cmd.Parameters.AddWithValue("@env", sensor.EnvironmentType);
-            cmd.Parameters.AddWithValue("@active", sensor.IsActive);
+                using var cmd = new NpgsqlCommand(query, connection);
+                cmd.Parameters.AddWithValue("@code", sensor.SensorCode);
+                cmd.Parameters.AddWithValue("@name", sensor.DisplayName);
+                cmd.Parameters.AddWithValue("@brgy", sensor.Barangay);
+                cmd.Parameters.AddWithValue("@lat", sensor.Lat);
+                cmd.Parameters.AddWithValue("@lng", sensor.Lng);
+                cmd.Parameters.AddWithValue("@base", sensor.BaselineTemp);
+                cmd.Parameters.AddWithValue("@env", sensor.EnvironmentType);
+                cmd.Parameters.AddWithValue("@active", sensor.IsActive);
 
-            await cmd.ExecuteNonQueryAsync();
-        }
+                await cmd.ExecuteNonQueryAsync();
+            }
+            catch (Npgsql.PostgresException ex) when (ex.SqlState == "23505") 
+            {
+                // This specifically catches the "Unique Constraint" error
+                throw new Exception("DUPLICATE_CODE");
+            }
+    }
 
         public async Task UpdateSensorFlexible(int id, SensorUpdateDto dto)
-        {
-            using var conn = new NpgsqlConnection(_connString);
-            await conn.OpenAsync();
+        { 
+            try {
+                using var conn = new NpgsqlConnection(_connString);
+                await conn.OpenAsync();
 
-            var updates = new List<string>();
-            using var cmd = new NpgsqlCommand();
-            cmd.Connection = conn;
-            cmd.Parameters.AddWithValue("@id", id);
+                var updates = new List<string>();
+                using var cmd = new NpgsqlCommand();
+                cmd.Connection = conn;
+                cmd.Parameters.AddWithValue("@id", id);
 
-            // 1. Check each property. If it's not null, add it to the UPDATE list.
-            if (dto.SensorCode != null) { 
-                updates.Add("sensor_code = @sc"); 
-                cmd.Parameters.AddWithValue("@sc", dto.SensorCode); 
-            }
-            if (dto.DisplayName != null) { 
-                updates.Add("display_name = @dn"); 
-                cmd.Parameters.AddWithValue("@dn", dto.DisplayName); 
-            }
-            if (dto.Barangay != null) { 
-                updates.Add("barangay = @brgy"); 
-                cmd.Parameters.AddWithValue("@brgy", dto.Barangay); 
-            }
-            if (dto.Lat.HasValue) { 
-                updates.Add("latitude = @lat"); 
-                cmd.Parameters.AddWithValue("@lat", (decimal)dto.Lat.Value); 
-            }
-            if (dto.Lng.HasValue) { 
-                updates.Add("longitude = @lng"); 
-                cmd.Parameters.AddWithValue("@lng", (decimal)dto.Lng.Value); 
-            }
-            if (dto.BaselineTemp.HasValue) { 
-                updates.Add("baseline_temp = @base"); 
-                cmd.Parameters.AddWithValue("@base", dto.BaselineTemp.Value); 
-            }
-            if (dto.EnvironmentType != null) { 
-                updates.Add("environment_type = @env"); 
-                cmd.Parameters.AddWithValue("@env", dto.EnvironmentType); 
-            }
-            if (dto.IsActive.HasValue) { 
-                updates.Add("is_active = @ia"); 
-                cmd.Parameters.AddWithValue("@ia", dto.IsActive.Value); 
-            }
+                // 1. Check each property. If it's not null, add it to the UPDATE list.
+                if (dto.SensorCode != null) { 
+                    updates.Add("sensor_code = @sc"); 
+                    cmd.Parameters.AddWithValue("@sc", dto.SensorCode); 
+                }
+                if (dto.DisplayName != null) { 
+                    updates.Add("display_name = @dn"); 
+                    cmd.Parameters.AddWithValue("@dn", dto.DisplayName); 
+                }
+                if (dto.Barangay != null) { 
+                    updates.Add("barangay = @brgy"); 
+                    cmd.Parameters.AddWithValue("@brgy", dto.Barangay); 
+                }
+                if (dto.Lat.HasValue) { 
+                    updates.Add("latitude = @lat"); 
+                    cmd.Parameters.AddWithValue("@lat", (decimal)dto.Lat.Value); 
+                }
+                if (dto.Lng.HasValue) { 
+                    updates.Add("longitude = @lng"); 
+                    cmd.Parameters.AddWithValue("@lng", (decimal)dto.Lng.Value); 
+                }
+                if (dto.BaselineTemp.HasValue) { 
+                    updates.Add("baseline_temp = @base"); 
+                    cmd.Parameters.AddWithValue("@base", dto.BaselineTemp.Value); 
+                }
+                if (dto.EnvironmentType != null) { 
+                    updates.Add("environment_type = @env"); 
+                    cmd.Parameters.AddWithValue("@env", dto.EnvironmentType); 
+                }
+                if (dto.IsActive.HasValue) { 
+                    updates.Add("is_active = @ia"); 
+                    cmd.Parameters.AddWithValue("@ia", dto.IsActive.Value); 
+                }
 
-            // 2. If the user sent an empty JSON {}, just exit.
-            if (updates.Count == 0) return;
+                // 2. If the user sent an empty JSON {}, just exit.
+                if (updates.Count == 0) return;
 
-            // 3. Join the strings: "SET sensor_code = @sc, latitude = @lat"
-            cmd.CommandText = $"UPDATE sensor_registry SET {string.Join(", ", updates)} WHERE id = @id";
+                // 3. Join the strings: "SET sensor_code = @sc, latitude = @lat"
+                cmd.CommandText = $"UPDATE sensor_registry SET {string.Join(", ", updates)} WHERE id = @id";
 
-            await cmd.ExecuteNonQueryAsync();
-            Console.WriteLine($"--- [DB Update]: Sensor ID {id} patched with {updates.Count} changes. ---");
+                await cmd.ExecuteNonQueryAsync();
+                Console.WriteLine($"--- [DB Update]: Sensor ID {id} patched with {updates.Count} changes. ---");
+            }
+            catch (Npgsql.PostgresException ex) when (ex.SqlState == "23505")
+            {
+                throw new Exception("DUPLICATE_CODE");
+            }
         }
 
         // 3. Update the fetcher to ONLY get active subscribers
