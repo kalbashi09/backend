@@ -15,36 +15,29 @@ namespace HeatAlert
             _connString = connString;
         }
 
-        public async Task SaveHeatLog(AlertResult result, int sensorId)
-        {
-            try 
+            public async Task SaveHeatLog(AlertResult result, int sensorId)
             {
+            
+           
+
                 using var connection = new NpgsqlConnection(_connString);
                 await connection.OpenAsync();
 
+                            // V3 Query: Reference sensor_id instead of raw strings
                 string query = @"INSERT INTO heat_logs (sensor_id, recorded_temp, heat_index, recorded_at) 
-                                VALUES (@sid, @temp, @hi, @created)";
-
+                VALUES (@sid, @temp, @hi, @created)";
                 using var cmd = new NpgsqlCommand(query, connection);
                 cmd.Parameters.AddWithValue("@sid", sensorId);
-                cmd.Parameters.AddWithValue("@temp", result.HeatIndex); 
+                cmd.Parameters.AddWithValue("@temp", result.HeatIndex); // Or actual temp if you separate them
                 cmd.Parameters.AddWithValue("@hi", result.HeatIndex);
-                cmd.Parameters.AddWithValue("@created", DateTime.UtcNow); 
+                cmd.Parameters.AddWithValue("@created", GlobalData.GetPHTime());
 
                 await cmd.ExecuteNonQueryAsync();
 
-                // INNOVATIVE FIX: Only trigger cleanup 5% of the time (approx. every 20 pings)
-                // This stops the "Connection Storm" that's crashing your server.
-                if (new Random().Next(1, 101) <= 5) 
-                {
-                    _ = CleanupOldLogs();
-                }
+                _ = CleanupOldLogs();
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[DB ERROR] Failed to save log for sensor {sensorId}: {ex.Message}");
-            }
-        }
+
+
 
         private async Task CleanupOldLogs()
         {
