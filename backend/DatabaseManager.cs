@@ -17,26 +17,31 @@ namespace HeatAlert
 
         public async Task SaveHeatLog(AlertResult result, int sensorId)
         {
-            // Still skip normal temps to save space if you want
-            if (result.HeatIndex >= 29 && result.HeatIndex <= 38) return; 
+            try 
+            {
+                using var connection = new NpgsqlConnection(_connString);
+                await connection.OpenAsync();
 
-            using var connection = new NpgsqlConnection(_connString);
-            await connection.OpenAsync();
+                string query = @"INSERT INTO heat_logs (sensor_id, recorded_temp, heat_index, recorded_at) 
+                                VALUES (@sid, @temp, @hi, @created)";
 
-            // V3 Query: Reference sensor_id instead of raw strings
-            string query = @"INSERT INTO heat_logs (sensor_id, recorded_temp, heat_index, recorded_at) 
-                            VALUES (@sid, @temp, @hi, @created)";
+                using var cmd = new NpgsqlCommand(query, connection);
 
-            using var cmd = new NpgsqlCommand(query, connection);
+                cmd.Parameters.AddWithValue("@sid", sensorId);
+                cmd.Parameters.AddWithValue("@temp", result.HeatIndex); 
+                cmd.Parameters.AddWithValue("@hi", result.HeatIndex);
+                // Best practice: Store UTC, convert to PH time in the UI
+                cmd.Parameters.AddWithValue("@created", DateTime.UtcNow); 
 
-            cmd.Parameters.AddWithValue("@sid", sensorId);
-            cmd.Parameters.AddWithValue("@temp", result.HeatIndex); // Or actual temp if you separate them
-            cmd.Parameters.AddWithValue("@hi", result.HeatIndex);
-            cmd.Parameters.AddWithValue("@created", GlobalData.GetPHTime());
+                await cmd.ExecuteNonQueryAsync();
 
-            await cmd.ExecuteNonQueryAsync();
-
-            _ = CleanupOldLogs();
+                // Fire-and-forget cleanup to keep the table lean
+                _ = CleanupOldLogs();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[DB ERROR] Failed to save log for sensor {sensorId}: {ex.Message}");
+            }
         }
 
         private async Task CleanupOldLogs()
