@@ -178,7 +178,8 @@ namespace HeatAlert
                 using var connection = new NpgsqlConnection(_connString);
                 await connection.OpenAsync();
                 
-                // V3: We JOIN the tables to get coordinates and names from sensor_registry
+                // 🔥 CRITICAL: Added WHERE s.is_active = true
+                // This prevents logs from "deactivated" sensors from appearing on the map.
                 string query = @"
                     SELECT 
                         s.barangay, 
@@ -190,6 +191,7 @@ namespace HeatAlert
                         s.sensor_code
                     FROM heat_logs l
                     JOIN sensor_registry s ON l.sensor_id = s.id
+                    WHERE s.is_active = true 
                     ORDER BY l.recorded_at DESC 
                     LIMIT @limit OFFSET @offset";
                 
@@ -204,7 +206,6 @@ namespace HeatAlert
                     logs.Add(new AlertResult {
                         BarangayName = reader.GetString(0),
                         HeatIndex = reader.GetInt32(1),
-                        // PostgreSQL 'decimal' maps to 'decimal' in C#, we convert to double
                         Lat = Convert.ToDouble(reader.GetDecimal(2)),
                         Lng = Convert.ToDouble(reader.GetDecimal(3)),
                         CreatedAt = reader.GetDateTime(4),
