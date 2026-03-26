@@ -28,8 +28,8 @@ namespace HeatAlert
             int roll = _rng.Next(1, 101);
             int finalTemp;
 
-            // 70% Chance: Standard day-to-day fluctuations
-            if (roll <= 70)
+            // 85% Chance: Standard day-to-day fluctuations
+            if (roll <= 85)
             {
                 // Now allows for "Normal" and "Caution" ranges (25°C to 41°C)
                 int normalValue = _rng.Next(baselineTemp - 5, baselineTemp + 8);
