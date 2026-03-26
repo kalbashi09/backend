@@ -256,7 +256,7 @@ namespace HeatAlert
 
                 string query = @"INSERT INTO sensor_registry 
                     (sensor_code, display_name, barangay, latitude, longitude, baseline_temp, environment_type, is_active) 
-                    VALUES (@code, @name, @brgy, @lat, @lng, @temp, @env, @active)";
+                    VALUES (@code, @name, @brgy, @lat, @lng, @base, @env, @active)";
 
                 using var cmd = new NpgsqlCommand(query, connection);
                 cmd.Parameters.AddWithValue("@code", sensor.SensorCode);
@@ -264,7 +264,7 @@ namespace HeatAlert
                 cmd.Parameters.AddWithValue("@brgy", sensor.Barangay);
                 cmd.Parameters.AddWithValue("@lat", sensor.Lat);
                 cmd.Parameters.AddWithValue("@lng", sensor.Lng);
-                cmd.Parameters.AddWithValue("@temp", sensor.BaselineTemp);
+                cmd.Parameters.AddWithValue("@base", sensor.BaselineTemp);
                 cmd.Parameters.AddWithValue("@env", sensor.EnvironmentType);
                 cmd.Parameters.AddWithValue("@active", sensor.IsActive);
 
@@ -297,9 +297,9 @@ namespace HeatAlert
                     updates.Add("display_name = @dn"); 
                     cmd.Parameters.AddWithValue("@dn", dto.DisplayName); 
                 }
-               if (!string.IsNullOrEmpty(dto.Barangay)) {
-                    updates.Add("barangay = @brgy"); // was BarangayName
-                    cmd.Parameters.AddWithValue("@brgy", dto.Barangay);
+                if (dto.Barangay != null) { 
+                    updates.Add("barangay = @brgy"); 
+                    cmd.Parameters.AddWithValue("@brgy", dto.Barangay); 
                 }
                 if (dto.Lat.HasValue) { 
                     updates.Add("latitude = @lat"); 
@@ -309,17 +309,17 @@ namespace HeatAlert
                     updates.Add("longitude = @lng"); 
                     cmd.Parameters.AddWithValue("@lng", (decimal)dto.Lng.Value); 
                 }
-                if (dto.BaselineTemp.HasValue) {
-                updates.Add("baseline_temp = @temp"); // was BaselineTemp
-                cmd.Parameters.AddWithValue("@temp", dto.BaselineTemp.Value);
+                if (dto.BaselineTemp.HasValue) { 
+                    updates.Add("baseline_temp = @base"); 
+                    cmd.Parameters.AddWithValue("@base", dto.BaselineTemp.Value); 
                 }
                 if (dto.EnvironmentType != null) { 
                     updates.Add("environment_type = @env"); 
                     cmd.Parameters.AddWithValue("@env", dto.EnvironmentType); 
                 }
-                if (dto.IsActive.HasValue) {
-                    updates.Add("is_active = @active"); // was IsActive
-                    cmd.Parameters.AddWithValue("@active", dto.IsActive.Value);
+                if (dto.IsActive.HasValue) { 
+                    updates.Add("is_active = @ia"); 
+                    cmd.Parameters.AddWithValue("@ia", dto.IsActive.Value); 
                 }
 
                 // 2. If the user sent an empty JSON {}, just exit.
