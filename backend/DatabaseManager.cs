@@ -26,17 +26,19 @@ namespace HeatAlert
                                 VALUES (@sid, @temp, @hi, @created)";
 
                 using var cmd = new NpgsqlCommand(query, connection);
-
                 cmd.Parameters.AddWithValue("@sid", sensorId);
                 cmd.Parameters.AddWithValue("@temp", result.HeatIndex); 
                 cmd.Parameters.AddWithValue("@hi", result.HeatIndex);
-                // Best practice: Store UTC, convert to PH time in the UI
                 cmd.Parameters.AddWithValue("@created", DateTime.UtcNow); 
 
                 await cmd.ExecuteNonQueryAsync();
 
-                // Fire-and-forget cleanup to keep the table lean
-                _ = CleanupOldLogs();
+                // INNOVATIVE FIX: Only trigger cleanup 5% of the time (approx. every 20 pings)
+                // This stops the "Connection Storm" that's crashing your server.
+                if (new Random().Next(1, 101) <= 5) 
+                {
+                    _ = CleanupOldLogs();
+                }
             }
             catch (Exception ex)
             {
