@@ -275,7 +275,7 @@ namespace HeatAlert
                 // This specifically catches the "Unique Constraint" error
                 throw new Exception("DUPLICATE_CODE");
             }
-    }
+        }
 
         public async Task UpdateSensorFlexible(int id, SensorUpdateDto dto)
         { 
@@ -331,9 +331,25 @@ namespace HeatAlert
                 await cmd.ExecuteNonQueryAsync();
                 Console.WriteLine($"--- [DB Update]: Sensor ID {id} patched with {updates.Count} changes. ---");
             }
-            catch (Npgsql.PostgresException ex) when (ex.SqlState == "23505")
+            catch (Npgsql.PostgresException ex)
             {
-                throw new Exception("DUPLICATE_CODE");
+                // LOGGING DIAGNOSTICS: This tells you why the ping didn't save
+                Console.WriteLine("❌ [DATABASE COMMAND FAILED]");
+                Console.WriteLine($"SqlState: {ex.SqlState}"); // e.g., 42703 for missing column
+                Console.WriteLine($"Message: {ex.MessageText}");
+                
+                if (ex.SqlState == "23505") // Unique Violation
+                {
+                    throw new Exception("DUPLICATE_CODE");
+                }
+                
+                // Re-throw if you want the bot to handle it, or just log it
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"⚠️ [GENERAL DB ERROR]: {ex.Message}");
+                throw;
             }
         }
 
