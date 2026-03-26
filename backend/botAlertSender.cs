@@ -18,28 +18,13 @@ namespace HeatAlert
         // 5-cycle manual sensor stage: sensorId -> (remainingCycles, fixedHeatIndex)
         public static readonly Dictionary<int, (int remainingCycles, int fixedHeatIndex)> ManualSensorSessions = new();
 
-        // Barangay GeoJSON features
-        private List<GeoJsonFeature> _barangayFeatures;
-
         // Removed: _mapData string
         public BotAlertSender(string token, DatabaseManager db)
         {
             _botClient = new TelegramBotClient(token);
             _db = db;
-
-            // Load barangay GeoJSON
-            string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "sharedresource", "talisaycitycebu.json");
-            if (File.Exists(jsonPath))
-            {
-                string json = File.ReadAllText(jsonPath);
-                var collection = JsonSerializer.Deserialize<FeatureCollection>(json);
-                _barangayFeatures = collection?.features ?? new List<GeoJsonFeature>();
-            }
-            else
-            {
-                _barangayFeatures = new List<GeoJsonFeature>();
-                Console.WriteLine("Warning: talisaycitycebu.json not found. Barangay detection disabled.");
-            }
+            // CLEANUP: Removed JSON loading and _barangayFeatures list. 
+            // GeoService handles this statically now.
         }
 
         public void StartBot()
@@ -168,49 +153,34 @@ namespace HeatAlert
         {
             long chatId = message.Chat.Id;
             if (!_pendingSimulations.TryGetValue(chatId, out var command)) command = "/danger";
-
             string username = message.From?.Username ?? "UnknownUser";
 
-            // 1) Ensure every subscriber has an allocated sensor row
             await _db.EnsureSubscriberSensor(chatId, username);
             string sensorCode = $"MOBILE_{chatId}";
             var sensor = await _db.GetSensorByCode(sensorCode);
-            if (sensor == null)
-            {
-                await bot.SendMessage(chatId, "⚠️ Sensor creation failed. Please try again.", cancellationToken: ct);
-                return;
-            }
+            
+            if (sensor == null) return;
 
-            int targetHeat = command switch
-            {
-                "/exdanger" => 86,
-                "/danger" => 49,
-                "/caution" => 40,
-                "/normal" => 31,
-                _ => 25
+            int targetHeat = command switch {
+                "/exdanger" => 86, "/danger" => 49, "/caution" => 40, "/normal" => 31, _ => 25
             };
 
-            // 2) Get barangay from GPS
+            // ⚡ REFACTOR: Using GeoService instead of private local methods
             double currentLat = message.Location!.Latitude;
             double currentLng = message.Location.Longitude;
-            string barangay = GetBarangayFromPoint(currentLat, currentLng, _barangayFeatures);
+            string barangay = GeoService.GetBarangay(currentLat, currentLng); 
 
-            // 3) Activate the sensor for the next 5 simulation cycles
-            var sensorDto = new SensorUpdateDto
-            {
+            var sensorDto = new SensorUpdateDto {
                 IsActive = true,
-                BaselineTemp = targetHeat, // lock-in the heat for those cycles too
+                BaselineTemp = targetHeat,
                 Barangay = barangay
             };
+            
             await _db.UpdateSensorFlexible(sensor.Id, sensorDto);
-
             ManualSensorSessions[sensor.Id] = (remainingCycles: 5, fixedHeatIndex: targetHeat);
-
-            // 4) Update location to current ping position
             await _db.UpdateSensorLocation(sensor.Id, currentLat, currentLng);
 
-            var result = new AlertResult
-            {
+            var result = new AlertResult {
                 SensorCode = sensor.SensorCode,
                 DisplayName = sensor.DisplayName,
                 BarangayName = barangay,
@@ -222,11 +192,7 @@ namespace HeatAlert
             };
 
             await ProcessAndBroadcastAlert(result, sensor.Id);
-
-            await bot.SendMessage(chatId,
-                $"📍 Mobile sensor activated (5 cycles) at {currentLat:F5}, {currentLng:F5} with {targetHeat}°C in {barangay}.",
-                cancellationToken: ct);
-
+            await bot.SendMessage(chatId, $"📍 Mobile sensor activated in {barangay}.", cancellationToken: ct);
             _pendingSimulations.Remove(chatId);
         }
 
